@@ -12,6 +12,8 @@
 
   "default_locale": "zh_CN",
 
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp4W0o/fRscVzdfR4IX+WdXITH0jOyVRUEVvlFsT3LmThSL9T6YSFAcZuEf6FLzRxmmTj95vQD12GRzxwdwgwQwAzy8xiwNzMsHlwo4LJ2SmSTSy1ruBWMPQd/G/JPLpm22/WevxumPVx2sAgg+FoETQPwTnBX+KWPN4bAVycHKRXxuK3ZTlDERQ2hzIHfUbBvqZBWxmlI469rGh2eTk+v7pTTY7LNAM8++ox8S/JRuOy/7X1NVC2bPeySg4a5pQFSb1XpaHnB1PTOtPJpNPeyPbOY1l2CQaXlwmlw2lwdY7XDNyWNSv5rf7ixCOc8ge9YPqsupKQJe/zjlPCYSaHkQIDAQAB",
+
   "permissions": [
     "cookies",
     "storage",
