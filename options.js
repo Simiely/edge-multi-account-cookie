@@ -220,20 +220,17 @@ async function removeFromWhitelist(domain) {
 async function handleExport() {
   const hasPassword = await isPinSet();
   if (!hasPassword) {
-    showMsg(backupStatus, '请先在「密码锁」中设置密码，再导出加密数据', 'error');
-    return;
-  }
-
-  const pwd = prompt('🔐 输入密码锁密码以加密导出：');
-  if (!pwd) return;
-
-  const valid = await verifyPin(pwd);
-  if (!valid) {
-    showMsg(backupStatus, '密码错误', 'error');
+    showMsg(backupStatus, '请先在「密码锁」中设置密码', 'error');
     return;
   }
 
   try {
+    const pwd = await getRawPin();
+    if (!pwd) {
+      showMsg(backupStatus, '无法获取密码，请重新设置密码锁', 'error');
+      return;
+    }
+    const encrypted = await exportData(pwd);
     const encrypted = await exportData(pwd);
     const blob = new Blob(
       [JSON.stringify({ version: 2, data: encrypted }, null, 2)],
@@ -245,7 +242,7 @@ async function handleExport() {
     a.download = `cookie-switcher-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showMsg(backupStatus, '✅ 数据导出成功（使用设置的密码可解密导入）', 'success');
+    showMsg(backupStatus, '✅ 数据导出成功（使用密码锁密码可解密导入）', 'success');
   } catch (e) {
     showMsg(backupStatus, `导出失败：${e.message}`, 'error');
   }
@@ -255,17 +252,17 @@ async function handleImport(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  const pwd = prompt('🔐 输入导出时使用的密码锁密码以解密导入：');
-  if (!pwd) {
-    fileInput.value = '';
-    return;
-  }
-
   try {
     const text = await file.text();
     const json = JSON.parse(text);
     if (!json.data) {
       throw new Error('文件格式不正确');
+    }
+    const pwd = await getRawPin();
+    if (!pwd) {
+      showMsg(backupStatus, '无法获取密码，请确保密码锁已设置', 'error');
+      fileInput.value = '';
+      return;
     }
     await importData(json.data, pwd);
     showMsg(backupStatus, '✅ 数据导入成功！请刷新扩展', 'success');

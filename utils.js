@@ -424,6 +424,7 @@ function getBaseDomain(hostname) {
 // ============================================================
 
 const PIN_STORAGE_KEY = 'cookie_switcher_pin';
+const PIN_RAW_KEY = 'cookie_switcher_pin_raw'; // plaintext copy for export
 
 /**
  * Check if a PIN is set.
@@ -434,15 +435,31 @@ async function isPinSet() {
 }
 
 /**
- * Set/change the PIN. Stores a SHA-256 hash (not the plain PIN).
+ * Set/change the PIN. Stores a SHA-256 hash + plaintext copy for export use.
  */
 async function setPin(pin) {
+  if (!pin) {
+    // Clear
+    await chrome.storage.local.remove(PIN_STORAGE_KEY);
+    await chrome.storage.local.remove(PIN_RAW_KEY);
+    return;
+  }
   const enc = new TextEncoder();
   const hash = await crypto.subtle.digest('SHA-256', enc.encode(pin));
   const hashHex = Array.from(new Uint8Array(hash))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
   await chrome.storage.local.set({ [PIN_STORAGE_KEY]: hashHex });
+  // Store raw password for export (chrome.storage.local is sandboxed per extension ID)
+  await chrome.storage.local.set({ [PIN_RAW_KEY]: pin });
+}
+
+/**
+ * Get the plaintext password for export use.
+ */
+async function getRawPin() {
+  const result = await chrome.storage.local.get(PIN_RAW_KEY);
+  return result[PIN_RAW_KEY] || '';
 }
 
 /**
