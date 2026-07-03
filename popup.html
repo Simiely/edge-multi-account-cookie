@@ -354,6 +354,9 @@
   <!-- Status -->
   <div class="status-bar" id="statusBar"></div>
 
+  <!-- Grant permission banner -->
+  <div id="grantBanner" style="display:none;"></div>
+
   <!-- Save new account section -->
   <div class="section" id="saveSection">
     <div class="input-row">
@@ -377,6 +380,15 @@
   <!-- Login new link -->
   <div class="section" style="margin-bottom:0;">
     <button class="btn btn-outline btn-full" id="btnLoginNew">➕ 登录新账号（清除当前 Cookie）</button>
+  </div>
+
+  <!-- Debug panel -->
+  <div id="debugLog" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
+    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;cursor:pointer;"
+         onclick="const d=document.getElementById('debugContent');d.style.display=d.style.display==='none'?'block':'none';">
+      🐛 调试日志 <span style="font-size:10px;">点击展开/收起</span>
+    </div>
+    <pre id="debugContent" style="display:none;font-size:10px;color:#888;background:var(--surface);padding:6px;border-radius:4px;max-height:150px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0;"></pre>
   </div>
 
   <script src="utils.js"></script>
