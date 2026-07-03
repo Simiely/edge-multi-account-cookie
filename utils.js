@@ -473,7 +473,7 @@ async function isDomainAllowed(domain) {
 //  Notification helper
 // ============================================================
 
-function showStatus(element, message, type = 'success', duration = 2500) {
+function showStatus(element, message, type = 'success', duration = 0) {
   element.textContent = message;
   element.className = `status-bar show ${type}`;
   if (duration > 0) {
