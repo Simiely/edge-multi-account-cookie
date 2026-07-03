@@ -218,10 +218,18 @@ async function removeFromWhitelist(domain) {
 // ============================================================
 
 async function handleExport() {
-  const pwd = prompt('🔐 输入导出密码（用于加密备份文件）：');
+  const hasPassword = await isPinSet();
+  if (!hasPassword) {
+    showMsg(backupStatus, '请先在「密码锁」中设置密码，再导出加密数据', 'error');
+    return;
+  }
+
+  const pwd = prompt('🔐 输入密码锁密码以加密导出：');
   if (!pwd) return;
-  if (pwd.length < 1) {
-    showMsg(backupStatus, '密码不能为空', 'error');
+
+  const valid = await verifyPin(pwd);
+  if (!valid) {
+    showMsg(backupStatus, '密码错误', 'error');
     return;
   }
 
@@ -247,7 +255,7 @@ async function handleImport(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  const pwd = prompt('🔐 输入导出时设置的密码以解密导入：');
+  const pwd = prompt('🔐 输入导出时使用的密码锁密码以解密导入：');
   if (!pwd) {
     fileInput.value = '';
     return;
