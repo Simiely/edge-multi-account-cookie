@@ -55,7 +55,13 @@ async function encrypt(plaintext, pin) {
   packed.set(salt, 0);
   packed.set(iv, salt.length);
   packed.set(new Uint8Array(ciphertext), salt.length + iv.length);
-  return btoa(String.fromCharCode(...packed));
+  // Convert to base64 (chunked to avoid stack overflow on large data)
+  let binary = '';
+  for (let i = 0; i < packed.length; i += 8192) {
+    const chunk = packed.subarray(i, i + 8192);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }
 
 /**
@@ -66,7 +72,11 @@ async function encrypt(plaintext, pin) {
  */
 async function decrypt(encoded, pin) {
   try {
-    const packed = new Uint8Array(atob(encoded).split('').map(c => c.charCodeAt(0)));
+    const binary = atob(encoded);
+    const packed = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      packed[i] = binary.charCodeAt(i);
+    }
     const salt = packed.slice(0, SALT_LENGTH);
     const iv = packed.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
     const data = packed.slice(SALT_LENGTH + IV_LENGTH);
