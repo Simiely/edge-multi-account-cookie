@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Cookie Switcher - 多账号切换助手",
+  "version": "1.0.0",
+  "description": "安全地保存和切换多网站账号 Cookie，数据本地加密存储，无需反复登录",
+
+  "icons": {
+    "16": "assets/icon-16.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  },
+
+  "default_locale": "zh_CN",
+
+  "permissions": [
+    "cookies",
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting"
+  ],
+
+  "host_permissions": [],
+  "optional_host_permissions": ["<all_urls>"],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Cookie Switcher"
+  },
+
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "打开 Cookie Switcher 弹窗"
+    }
+  },
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}

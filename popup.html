@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Cookie Switcher</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --surface-hover: #1a2750;
+      --primary: #4f8cff;
+      --primary-hover: #3a7bff;
+      --danger: #e74c3c;
+      --danger-hover: #c0392b;
+      --success: #2ecc71;
+      --text: #e0e0e0;
+      --text-secondary: #a0a0b0;
+      --border: #2a2a4a;
+      --radius: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 340px;
+      min-height: 300px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      font-size: 14px;
+      padding: 12px;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .header-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .header-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .header-actions button {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      border-radius: 4px;
+    }
+    .header-actions button:hover {
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+
+    /* Domain bar */
+    .domain-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      word-break: break-all;
+    }
+    .domain-bar .domain-icon {
+      font-size: 14px;
+    }
+    .domain-bar .domain-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .domain-bar .domain-refresh {
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 12px;
+      padding: 2px 6px;
+    }
+    .domain-bar .domain-refresh:hover {
+      color: var(--primary);
+    }
+
+    /* Section */
+    .section {
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Account list */
+    .account-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .account-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    .account-list::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    .account-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .account-card:hover {
+      background: var(--surface-hover);
+      border-color: var(--primary);
+    }
+    .account-card:active {
+      transform: scale(0.98);
+    }
+
+    .account-card .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .account-card .info {
+      flex: 1;
+      min-width: 0;
+    }
+    .account-card .info .name {
+      font-size: 13px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .account-card .info .group-tag {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .account-card .actions {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .account-card:hover .actions {
+      opacity: 1;
+    }
+    .account-card .actions button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      color: var(--text-secondary);
+    }
+    .account-card .actions .btn-delete:hover {
+      color: var(--danger);
+      background: rgba(231,76,60,0.15);
+    }
+    .account-card .actions .btn-switch-icon:hover {
+      color: var(--primary);
+      background: rgba(79,140,255,0.15);
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 24px 12px;
+      color: var(--text-secondary);
+    }
+    .empty-state .icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+    }
+    .empty-state .text {
+      font-size: 13px;
+    }
+
+    /* Input area */
+    .input-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .input-row input {
+      flex: 1;
+      padding: 8px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+    .input-row input:focus {
+      border-color: var(--primary);
+    }
+    .input-row input::placeholder {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .input-row input:read-only {
+      opacity: 0.7;
+      cursor: default;
+    }
+
+    .btn {
+      padding: 8px 14px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn:active {
+      transform: scale(0.97);
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+    .btn-danger:hover {
+      background: var(--danger-hover);
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover {
+      background: var(--surface-hover);
+    }
+    .btn-full {
+      width: 100%;
+    }
+
+    /* Status message */
+    .status-bar {
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      margin-bottom: 8px;
+      display: none;
+    }
+    .status-bar.show {
+      display: block;
+    }
+    .status-bar.success {
+      background: rgba(46,204,113,0.15);
+      color: var(--success);
+      border: 1px solid rgba(46,204,113,0.3);
+    }
+    .status-bar.error {
+      background: rgba(231,76,60,0.15);
+      color: var(--danger);
+      border: 1px solid rgba(231,76,60,0.3);
+    }
+
+    /* Loading spinner */
+    .loading {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Small badge */
+    .badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 10px;
+      background: var(--border);
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">Cookie Switcher</div>
+    <div class="header-actions">
+      <button id="btnOptions" title="设置">⚙️</button>
+    </div>
+  </div>
+
+  <!-- Domain bar -->
+  <div class="domain-bar">
+    <span class="domain-icon">🌐</span>
+    <span class="domain-text" id="domainText">正在获取...</span>
+    <button class="domain-refresh" id="btnRefresh" title="刷新">↻</button>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar" id="statusBar"></div>
+
+  <!-- Save new account section -->
+  <div class="section" id="saveSection">
+    <div class="input-row">
+      <input type="text" id="inputName" placeholder="账号名称（如：工作号）" maxlength="30" />
+    </div>
+    <button class="btn btn-primary btn-full" id="btnSave">💾 保存当前账号</button>
+  </div>
+
+  <!-- Account list section -->
+  <div class="section">
+    <div class="section-title" id="sectionTitle">已保存的账号</div>
+    <div id="accountListContainer">
+      <div class="empty-state" id="emptyState">
+        <div class="icon">📂</div>
+        <div class="text">暂无保存的账号</div>
+      </div>
+      <div class="account-list" id="accountList"></div>
+    </div>
+  </div>
+
+  <!-- Login new link -->
+  <div class="section" style="margin-bottom:0;">
+    <button class="btn btn-outline btn-full" id="btnLoginNew">➕ 登录新账号（清除当前 Cookie）</button>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

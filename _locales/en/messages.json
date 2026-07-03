@@ -1,0 +1,56 @@
+{
+  "extName": { "message": "Cookie Switcher" },
+  "extDesc": { "message": "Securely save and switch website account cookies with local encrypted storage" },
+
+  "currentSite": { "message": "Current Site" },
+  "domainPlaceholder": { "message": "Fetching current tab domain..." },
+
+  "accountName": { "message": "Account Name" },
+  "accountNamePlaceholder": { "message": "e.g. Work, Personal" },
+
+  "accountGroup": { "message": "Group (Optional)" },
+  "accountGroupPlaceholder": { "message": "e.g. Shopping, Social" },
+
+  "btnSave": { "message": "💾 Save Current Account" },
+  "btnSwitch": { "message": "🔄 Switch to This Account" },
+  "btnDelete": { "message": "🗑️ Delete" },
+  "btnLoginNew": { "message": "➕ Login New Account" },
+  "btnOptions": { "message": "⚙️ Settings" },
+
+  "noAccounts": { "message": "No saved accounts" },
+  "accountCount": { "message": "{count} account(s)" },
+
+  "msgSaved": { "message": "✓ Account saved" },
+  "msgSwitched": { "message": "✓ Switched to 「{name}」" },
+  "msgDeleted": { "message": "✓ Account deleted" },
+  "msgNoAccounts": { "message": "No saved accounts for this site" },
+  "msgNeedName": { "message": "Please enter an account name" },
+  "msgError": { "message": "Operation failed: {error}" },
+  "msgCookieCleared": { "message": "✓ Cookies cleared. Login in new tab." },
+
+  "labelGroup": { "message": "Group" },
+  "labelUngrouped": { "message": "Ungrouped" },
+
+  "confirmDelete": { "message": "Are you sure you want to delete「{name}」?" },
+
+  "optionsTitle": { "message": "Cookie Switcher Settings" },
+  "optionsSecurity": { "message": "Security" },
+  "optionsPinLock": { "message": "PIN Lock" },
+  "optionsPinEnabled": { "message": "Enable PIN Lock" },
+  "optionsPinSet": { "message": "Set PIN" },
+  "optionsPinCurrent": { "message": "Current PIN" },
+  "optionsPinNew": { "message": "New PIN" },
+  "optionsPinConfirm": { "message": "Confirm PIN" },
+  "optionsPinMismatch": { "message": "PIN codes do not match" },
+  "optionsPinSaved": { "message": "PIN saved successfully" },
+  "optionsDomainWhitelist": { "message": "Domain Whitelist" },
+  "optionsAddDomain": { "message": "Add Domain" },
+  "optionsDomainPlaceholder": { "message": "e.g. example.com" },
+  "optionsWhitelistNote": { "message": "Only whitelisted domains can be operated (leave empty to allow all)" },
+
+  "optionsExport": { "message": "Export Data" },
+  "optionsExportBtn": { "message": "Export (Encrypted)" },
+  "optionsImport": { "message": "Import Data" },
+  "optionsImportBtn": { "message": "Import Data" },
+  "optionsDataNote": { "message": "Exported data is AES-GCM encrypted. Enter your PIN to decrypt and import." }
+}
