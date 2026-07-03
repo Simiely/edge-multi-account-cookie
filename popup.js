@@ -108,7 +108,7 @@ async function verifyCookieAccess() {
           <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
             Cookie API 需要主机权限才能读取和写入网站 Cookie。
           </div>
-          <button id="btnGrantPerm" style="padding:6px 16px;border:none;border-radius:6px;background:#4f8cff;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">
+          <button id="btnGrantPerm" style="padding:6px 16px;border:none;border-radius:6px;background:#ff9292;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">
             ✅ 授权访问此网站
           </button>
           <button id="btnDebugGrant" style="margin-left:6px;padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-secondary);cursor:pointer;font-size:12px;">

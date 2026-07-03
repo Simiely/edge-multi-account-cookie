@@ -62,12 +62,16 @@ async function clearDomainCookies(domain) {
 // ============================================================
 
 chrome.runtime.onInstalled.addListener((details) => {
-  // Create context menus
-  chrome.contextMenus.create({
-    id: 'switch-clear-cookies',
-    title: '清除此站点 Cookie 并重新登录',
-    contexts: ['page']
-  });
+  // Create context menus (API may not be available in all browsers)
+  try {
+    chrome.contextMenus.create({
+      id: 'switch-clear-cookies',
+      title: '清除此站点 Cookie 并重新登录',
+      contexts: ['page']
+    });
+  } catch (e) {
+    console.log('contextMenus API not available:', e.message);
+  }
 
   if (details.reason === 'install') {
     console.log('Cookie Switcher 已安装。按 Alt+Shift+S 快速打开。');
@@ -78,23 +82,25 @@ chrome.runtime.onInstalled.addListener((details) => {
 //  Context Menu
 // ============================================================
 
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (!tab || !tab.url) return;
+if (chrome.contextMenus) {
+  chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+    if (!tab || !tab.url) return;
 
-  const domain = extractDomain(tab.url);
-  if (!domain) return;
+    const domain = extractDomain(tab.url);
+    if (!domain) return;
 
-  if (info.menuItemId === 'switch-clear-cookies') {
-    await clearDomainCookies(domain);
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => localStorage.clear()
-      });
-    } catch (e) { /* non-critical */ }
-    await chrome.tabs.reload(tab.id);
-  }
-});
+    if (info.menuItemId === 'switch-clear-cookies') {
+      await clearDomainCookies(domain);
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => localStorage.clear()
+        });
+      } catch (e) { /* non-critical */ }
+      await chrome.tabs.reload(tab.id);
+    }
+  });
+}
 
 // ============================================================
 //  Keyboard Commands
