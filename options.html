@@ -207,11 +207,11 @@
 
 <!-- Security: PIN Lock -->
 <div class="section">
-  <div class="section-title">🔒 PIN 锁</div>
-  <div class="section-desc">开启后，打开扩展弹窗需输入 PIN 码验证</div>
+  <div class="section-title">🔒 密码锁</div>
+  <div class="section-desc">开启后，打开扩展弹窗需输入密码验证</div>
 
   <div class="form-row">
-    <label>启用 PIN 锁</label>
+    <label>启用密码锁</label>
     <label class="toggle">
       <input type="checkbox" id="pinEnabled" />
       <span class="slider"></span>
@@ -220,18 +220,18 @@
 
   <div id="pinConfig" class="hidden">
     <div class="form-row">
-      <label>当前 PIN</label>
-      <input type="password" id="pinCurrent" placeholder="输入当前 PIN" />
+      <label>当前密码</label>
+      <input type="password" id="pinCurrent" placeholder="输入当前密码" />
     </div>
     <div class="form-row">
-      <label>新 PIN</label>
-      <input type="password" id="pinNew" placeholder="4-10 位数字" maxlength="10" />
+      <label>新密码</label>
+      <input type="password" id="pinNew" placeholder="自定义密码" />
     </div>
     <div class="form-row">
-      <label>确认 PIN</label>
-      <input type="password" id="pinConfirm" placeholder="再次输入" maxlength="10" />
+      <label>确认密码</label>
+      <input type="password" id="pinConfirm" placeholder="再次输入密码" />
     </div>
-    <button class="btn btn-primary" id="btnSavePin">保存 PIN 设置</button>
+    <button class="btn btn-primary" id="btnSavePin">保存密码设置</button>
   </div>
 
   <div class="status-msg" id="pinStatus"></div>
@@ -254,7 +254,7 @@
 <!-- Export/Import -->
 <div class="section">
   <div class="section-title">📦 数据备份</div>
-  <div class="section-desc">数据使用 AES-GCM 加密导出，导入时需输入正确的 PIN 码。</div>
+  <div class="section-desc">数据使用 AES-GCM 加密导出，导入时需输入正确的密码。</div>
 
   <div class="form-row" style="flex-wrap:wrap; gap:8px;">
     <button class="btn btn-primary" id="btnExport">📤 导出数据（加密）</button>

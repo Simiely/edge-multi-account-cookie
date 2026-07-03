@@ -344,11 +344,6 @@
     </div>
   </div>
 
-  <!-- Refresh hint -->
-  <div style="font-size:10px;color:var(--text-secondary);text-align:center;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:10px;">
-    v1.0.0 — 如果看到这行字，说明刷新生效了 ✅
-  </div>
-
   <!-- Domain bar -->
   <div class="domain-bar">
     <span class="domain-icon">🌐</span>
@@ -385,15 +380,6 @@
   <!-- Login new link -->
   <div class="section" style="margin-bottom:0;">
     <button class="btn btn-outline btn-full" id="btnLoginNew">➕ 登录新账号（清除当前 Cookie）</button>
-  </div>
-
-  <!-- Debug panel -->
-  <div id="debugLog" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
-    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;cursor:pointer;user-select:none;"
-         onclick="const d=document.getElementById('debugContent');const e=d.style.display;d.style.display=e==='none'?'block':'none';this.querySelector('.toggle-icon').textContent=e==='none'?'▼':'▶';">
-      <span class="toggle-icon">▼</span> 🐛 调试日志
-    </div>
-    <pre id="debugContent" style="font-size:10px;color:#888;background:var(--surface);padding:6px;border-radius:4px;max-height:150px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0;"></pre>
   </div>
 
   <script src="utils.js"></script>

@@ -94,11 +94,11 @@ async function handleSavePin() {
   }
 
   if (!newPin) {
-    showMsg(pinStatus, '请输入新 PIN 码', 'error');
+    showMsg(pinStatus, '请输入密码', 'error');
     return;
   }
-  if (!/^\d{4,10}$/.test(newPin)) {
-    showMsg(pinStatus, 'PIN 码须为 4-10 位数字', 'error');
+  if (newPin.length < 1) {
+    showMsg(pinStatus, '密码不能为空', 'error');
     return;
   }
   if (newPin !== confirm) {
