@@ -384,8 +384,14 @@ async function handleSwitchAccount(name, account) {
     } else {
       // Apply cookies
       debug('开始写入 Cookie...');
-      await applyCookies(currentDomain, cookies);
-      debug('Cookie 写入完成');
+      const result = await applyCookies(currentDomain, cookies);
+      debug(`Cookie 操作完成: 清除 ${result.cleared} 个, 写入 ${result.set} 个`);
+      if (result.failedClear.length > 0) {
+        debug('清除失败的 Cookie:', result.failedClear.map(f => `${f.name}(${f.error})`).join(', '));
+      }
+      if (result.failedSet.length > 0) {
+        debug('写入失败的 Cookie:', result.failedSet.map(f => `${f.name}(${f.error})`).join(', '));
+      }
     }
 
     // Apply localStorage
@@ -447,9 +453,16 @@ async function handleLoginNew() {
       debug('⚠️ 没有读到任何 Cookie，可能缺少主机权限');
     }
 
-    // Step 2: Clear cookies
-    await clearDomainCookies(currentDomain);
-    debug('Cookie 清除完成');
+    // Step 2: Clear cookies (with detailed result)
+    const result = await clearDomainCookies(currentDomain);
+    debug('Cookie 清除完成：成功', result.removed, '个, 失败', result.failedCookies.length, '个');
+    
+    if (result.failedCookies.length > 0) {
+      debug('移除失败的 Cookie:');
+      result.failedCookies.forEach(f => {
+        debug(`  ✕ ${f.name} (domain:${f.domain}, path:${f.path}) - ${f.error}`);
+      });
+    }
 
     // Step 3: Clear localStorage
     await clearTabLocalStorage(currentTabId);
@@ -463,10 +476,17 @@ async function handleLoginNew() {
     await chrome.tabs.reload(currentTabId);
     debug('页面已刷新');
 
-    if (beforeCookies.length > 0 && afterCookies.length === beforeCookies.length) {
-      showStatus(statusBar, '⚠️ Cookie 未能成功清除，可能缺少主机权限。请点击上方的「授权访问此网站」', 'error');
+    // Build feedback message
+    if (result.failedCookies.length > 0) {
+      const failedNames = result.failedCookies.map(f => f.name).join(', ');
+      showStatus(statusBar,
+        `⚠️ 成功移除 ${result.removed}/${result.total} 个 Cookie，` +
+        `${result.failedCookies.length} 个移除失败：${failedNames}`,
+        'error');
+    } else if (result.removed > 0) {
+      showStatus(statusBar, `✓ 已清除 ${result.removed} 个 Cookie，页面正在刷新`);
     } else {
-      showStatus(statusBar, `✓ Cookie 已清除（移除了 ${beforeCookies.length} 个），页面正在刷新`);
+      showStatus(statusBar, '⚠️ 没有 Cookie 被清除，可能缺少权限', 'error');
     }
   } catch (e) {
     debug('清除失败:', e.message);

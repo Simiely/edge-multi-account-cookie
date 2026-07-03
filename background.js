@@ -16,8 +16,10 @@ function extractDomain(url) {
   }
 }
 
-function getCookieUrl(cookie) {
-  return `${cookie.secure ? 'https' : 'http'}://${cookie.domain}${cookie.path || '/'}`;
+function cookieUrl(cookie) {
+  const domain = cookie.domain?.startsWith('.') ? cookie.domain.slice(1) : cookie.domain;
+  const path = cookie.path || '/';
+  return `${cookie.secure ? 'https' : 'http'}://${domain}${path}`;
 }
 
 function getCookies(domain) {
@@ -31,7 +33,7 @@ function getCookies(domain) {
 function setCookie(cookie) {
   return new Promise((resolve) => {
     chrome.cookies.set({
-      url: getCookieUrl(cookie),
+      url: cookieUrl(cookie),
       name: cookie.name,
       value: cookie.value,
       domain: cookie.domain,
@@ -46,7 +48,7 @@ function setCookie(cookie) {
 
 function removeCookie(cookie) {
   return new Promise((resolve) => {
-    chrome.cookies.remove({ url: getCookieUrl(cookie), name: cookie.name }, resolve);
+    chrome.cookies.remove({ url: cookieUrl(cookie), name: cookie.name }, resolve);
   });
 }
 

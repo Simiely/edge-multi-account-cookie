@@ -201,15 +201,25 @@ async function getCookies(domain) {
 }
 
 /**
+ * Build a proper cookie URL from a cookie object.
+ * Handles leading dot in domain (e.g. ".example.com" -> "example.com")
+ * which is required for chrome.cookies.remove() and .set() to work correctly.
+ */
+function cookieUrl(cookie) {
+  const domain = cookie.domain?.startsWith('.') ? cookie.domain.slice(1) : cookie.domain;
+  const path = cookie.path || '/';
+  return `${cookie.secure ? 'https' : 'http'}://${domain}${path}`;
+}
+
+/**
  * Set a single cookie.
  * @param {object} cookie - Cookie object with name, value, domain, path, secure, etc.
  * @returns {Promise}
  */
 async function setCookie(cookie) {
   return new Promise((resolve, reject) => {
-    const url = `${cookie.secure ? 'https' : 'http'}://${cookie.domain}${cookie.path || '/'}`;
     chrome.cookies.set({
-      url,
+      url: cookieUrl(cookie),
       name: cookie.name,
       value: cookie.value,
       domain: cookie.domain,
@@ -233,9 +243,8 @@ async function setCookie(cookie) {
  */
 async function removeCookie(cookie) {
   return new Promise((resolve, reject) => {
-    const url = `${cookie.secure ? 'https' : 'http'}://${cookie.domain}${cookie.path || '/'}`;
     chrome.cookies.remove({
-      url,
+      url: cookieUrl(cookie),
       name: cookie.name,
       storeId: cookie.storeId
     }, () => {
@@ -250,34 +259,50 @@ async function removeCookie(cookie) {
 
 /**
  * Clear all cookies for a domain.
+ * Returns stats about the operation.
  * @param {string} domain
+ * @returns {Promise<{removed:number, failed:number, failedCookies:Array}>}
  */
 async function clearDomainCookies(domain) {
   const cookies = await getCookies(domain);
+  let removed = 0;
+  const failedCookies = [];
   for (const c of cookies) {
     try {
       await removeCookie(c);
+      removed++;
     } catch (e) {
-      // Skip failed removals
+      failedCookies.push({ name: c.name, domain: c.domain, path: c.path, error: e.message });
     }
   }
+  return { removed, total: cookies.length, failedCookies };
 }
 
 /**
  * Write a batch of cookies to the browser (switching accounts).
  * First clears existing cookies for the domain, then writes new ones.
+ * @returns {Promise<{cleared:number, set:number, failed:Array}>}
  */
 async function applyCookies(domain, cookies) {
   // Clear existing cookies
-  await clearDomainCookies(domain);
+  const clearResult = await clearDomainCookies(domain);
   // Write new cookies
+  let setCount = 0;
+  const failedSet = [];
   for (const c of cookies) {
     try {
       await setCookie(c);
+      setCount++;
     } catch (e) {
-      console.warn('Failed to set cookie:', c.name, e);
+      failedSet.push({ name: c.name, error: e.message });
     }
   }
+  return {
+    cleared: clearResult.removed,
+    failedClear: clearResult.failedCookies,
+    set: setCount,
+    failedSet
+  };
 }
 
 // ============================================================
