@@ -231,7 +231,6 @@ async function handleExport() {
       return;
     }
     const encrypted = await exportData(pwd);
-    const encrypted = await exportData(pwd);
     const blob = new Blob(
       [JSON.stringify({ version: 2, data: encrypted }, null, 2)],
       { type: 'application/json' }
