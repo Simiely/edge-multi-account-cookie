@@ -27,6 +27,7 @@
       padding: 24px;
       max-width: 600px;
       margin: 0 auto;
+      overflow-y: scroll;
     }
 
     h1 {
@@ -59,13 +60,14 @@
     .form-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
+      gap: 8px;
+      margin-bottom: 8px;
     }
 
     .form-row label {
       font-size: 13px;
-      min-width: 80px;
+      min-width: 70px;
+      flex-shrink: 0;
     }
 
     .form-row input[type="text"],
@@ -104,7 +106,6 @@
       top: 0; left: 0; right: 0; bottom: 0;
       background: var(--border);
       border-radius: 22px;
-      transition: 0.3s;
     }
     .toggle .slider::before {
       content: '';
@@ -115,7 +116,12 @@
       bottom: 3px;
       background: var(--text);
       border-radius: 50%;
-      transition: 0.3s;
+    }
+    .toggle input:checked + .slider {
+      background: var(--primary);
+    }
+    .toggle input:checked + .slider::before {
+      transform: translateX(18px);
     }
     .toggle input:checked + .slider {
       background: var(--primary);
@@ -219,7 +225,7 @@
   </div>
 
   <div id="pinConfig" class="hidden">
-    <div class="form-row">
+    <div class="form-row" id="pinCurrentRow">
       <label>当前密码</label>
       <input type="password" id="pinCurrent" placeholder="输入当前密码" />
     </div>

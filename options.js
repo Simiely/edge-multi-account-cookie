@@ -37,22 +37,51 @@ async function loadSettings() {
   // PIN
   const pinSet = await isPinSet();
   pinEnabled.checked = pinSet;
-  pinConfig.classList.toggle('hidden', !pinSet);
+  togglePinConfig(pinSet);
 
   // Whitelist
   await renderWhitelist();
 }
 
+function togglePinConfig(show) {
+  const currentRow = document.getElementById('pinCurrentRow');
+  if (show) {
+    pinConfig.classList.remove('hidden');
+    isPinSet().then(hasPin => {
+      currentRow.style.display = hasPin ? 'flex' : 'none';
+    });
+  } else {
+    pinConfig.classList.add('hidden');
+  }
+}
+
 function bindEvents() {
-  // PIN toggle
-  pinEnabled.addEventListener('change', async () => {
+  // Password toggle
+  pinEnabled.addEventListener('change', async (e) => {
     if (pinEnabled.checked) {
-      pinConfig.classList.remove('hidden');
+      // Turn ON - show config
+      togglePinConfig(true);
     } else {
+      // Turn OFF - verify password first
+      const hasPassword = await isPinSet();
+      if (hasPassword) {
+        const pwd = prompt('🔐 输入当前密码以关闭密码锁：');
+        if (!pwd) {
+          // Cancelled - restore toggle
+          pinEnabled.checked = true;
+          return;
+        }
+        const valid = await verifyPin(pwd);
+        if (!valid) {
+          showMsg(pinStatus, '密码错误，未能关闭', 'error');
+          pinEnabled.checked = true; // restore
+          return;
+        }
+      }
       // Disable password lock
       await setPin('');
       await chrome.storage.local.remove('cookie_switcher_pin');
-      pinConfig.classList.add('hidden');
+      togglePinConfig(false);
       showMsg(pinStatus, '密码锁已关闭', 'success');
     }
   });
@@ -110,6 +139,8 @@ async function handleSavePin() {
   pinCurrent.value = '';
   pinNew.value = '';
   pinConfirm.value = '';
+  // 密码已设置，显示"当前密码"行
+  document.getElementById('pinCurrentRow').style.display = 'flex';
   showMsg(pinStatus, '密码设置已保存', 'success');
 }
 

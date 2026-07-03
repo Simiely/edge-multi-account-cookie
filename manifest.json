@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Cookie Switcher - 多账号切换助手",
-  "version": "1.7.0",
+  "version": "2.1.0",
   "description": "安全地保存和切换多网站账号 Cookie，数据本地加密存储，无需反复登录",
 
   "icons": {
