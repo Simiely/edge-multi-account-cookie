@@ -78,7 +78,7 @@ async function decrypt(encoded, pin) {
     );
     return new TextDecoder().decode(decrypted);
   } catch (e) {
-    throw new Error('解密失败：PIN 错误或数据已损坏');
+    throw new Error('解密失败：密码错误或数据已损坏');
   }
 }
 

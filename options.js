@@ -49,11 +49,11 @@ function bindEvents() {
     if (pinEnabled.checked) {
       pinConfig.classList.remove('hidden');
     } else {
-      // Disable PIN
+      // Disable password lock
       await setPin('');
       await chrome.storage.local.remove('cookie_switcher_pin');
       pinConfig.classList.add('hidden');
-      showMsg(pinStatus, 'PIN 锁已关闭', 'success');
+      showMsg(pinStatus, '密码锁已关闭', 'success');
     }
   });
 
@@ -83,18 +83,18 @@ async function handleSavePin() {
   // Validate current PIN if changing
   if (hasPin) {
     if (!current) {
-      showMsg(pinStatus, '请输入当前 PIN 码', 'error');
+      showMsg(pinStatus, '请输入当前密码', 'error');
       return;
     }
     const valid = await verifyPin(current);
     if (!valid) {
-      showMsg(pinStatus, '当前 PIN 码错误', 'error');
+      showMsg(pinStatus, '当前密码错误', 'error');
       return;
     }
   }
 
   if (!newPin) {
-    showMsg(pinStatus, '请输入密码', 'error');
+    showMsg(pinStatus, '请输入新密码', 'error');
     return;
   }
   if (newPin.length < 1) {
@@ -102,7 +102,7 @@ async function handleSavePin() {
     return;
   }
   if (newPin !== confirm) {
-    showMsg(pinStatus, '两次输入的 PIN 码不一致', 'error');
+    showMsg(pinStatus, '两次输入的密码不一致', 'error');
     return;
   }
 
@@ -110,7 +110,7 @@ async function handleSavePin() {
   pinCurrent.value = '';
   pinNew.value = '';
   pinConfirm.value = '';
-  showMsg(pinStatus, 'PIN 码设置已保存', 'success');
+  showMsg(pinStatus, '密码设置已保存', 'success');
 }
 
 // ============================================================
@@ -187,24 +187,15 @@ async function removeFromWhitelist(domain) {
 // ============================================================
 
 async function handleExport() {
-  const hasPin = await isPinSet();
-  if (!hasPin) {
-    showMsg(backupStatus, '请先设置 PIN 码再导出数据（数据会被加密）', 'error');
-    return;
-  }
-
-  // Get PIN from user
-  const pin = prompt('请输入 PIN 码以加密导出数据：');
-  if (!pin) return;
-
-  const valid = await verifyPin(pin);
-  if (!valid) {
-    showMsg(backupStatus, 'PIN 码错误', 'error');
+  const pwd = prompt('🔐 输入导出密码（用于加密备份文件）：');
+  if (!pwd) return;
+  if (pwd.length < 1) {
+    showMsg(backupStatus, '密码不能为空', 'error');
     return;
   }
 
   try {
-    const encrypted = await exportData(pin);
+    const encrypted = await exportData(pwd);
     const blob = new Blob(
       [JSON.stringify({ version: 2, data: encrypted }, null, 2)],
       { type: 'application/json' }
@@ -215,7 +206,7 @@ async function handleExport() {
     a.download = `cookie-switcher-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showMsg(backupStatus, '数据导出成功', 'success');
+    showMsg(backupStatus, '✅ 数据导出成功（使用设置的密码可解密导入）', 'success');
   } catch (e) {
     showMsg(backupStatus, `导出失败：${e.message}`, 'error');
   }
@@ -225,8 +216,8 @@ async function handleImport(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  const pin = prompt('请输入 PIN 码以解密导入数据：');
-  if (!pin) {
+  const pwd = prompt('🔐 输入导出时设置的密码以解密导入：');
+  if (!pwd) {
     fileInput.value = '';
     return;
   }
@@ -237,8 +228,8 @@ async function handleImport(e) {
     if (!json.data) {
       throw new Error('文件格式不正确');
     }
-    await importData(json.data, pin);
-    showMsg(backupStatus, '数据导入成功！请重启扩展或刷新页面', 'success');
+    await importData(json.data, pwd);
+    showMsg(backupStatus, '✅ 数据导入成功！请刷新扩展', 'success');
   } catch (e) {
     showMsg(backupStatus, `导入失败：${e.message}`, 'error');
   }

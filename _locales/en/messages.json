@@ -35,14 +35,14 @@
 
   "optionsTitle": { "message": "Cookie Switcher Settings" },
   "optionsSecurity": { "message": "Security" },
-  "optionsPinLock": { "message": "PIN Lock" },
-  "optionsPinEnabled": { "message": "Enable PIN Lock" },
-  "optionsPinSet": { "message": "Set PIN" },
-  "optionsPinCurrent": { "message": "Current PIN" },
-  "optionsPinNew": { "message": "New PIN" },
-  "optionsPinConfirm": { "message": "Confirm PIN" },
-  "optionsPinMismatch": { "message": "PIN codes do not match" },
-  "optionsPinSaved": { "message": "PIN saved successfully" },
+  "optionsPinLock": { "message": "Password Lock" },
+  "optionsPinEnabled": { "message": "Enable Password Lock" },
+  "optionsPinSet": { "message": "Set Password" },
+  "optionsPinCurrent": { "message": "Current Password" },
+  "optionsPinNew": { "message": "New Password" },
+  "optionsPinConfirm": { "message": "Confirm Password" },
+  "optionsPinMismatch": { "message": "Passwords do not match" },
+  "optionsPinSaved": { "message": "Password saved successfully" },
   "optionsDomainWhitelist": { "message": "Domain Whitelist" },
   "optionsAddDomain": { "message": "Add Domain" },
   "optionsDomainPlaceholder": { "message": "e.g. example.com" },
@@ -52,5 +52,5 @@
   "optionsExportBtn": { "message": "Export (Encrypted)" },
   "optionsImport": { "message": "Import Data" },
   "optionsImportBtn": { "message": "Import Data" },
-  "optionsDataNote": { "message": "Exported data is AES-GCM encrypted. Enter your PIN to decrypt and import." }
+  "optionsDataNote": { "message": "Set a password to encrypt export. Enter that password to decrypt and import." }
 }

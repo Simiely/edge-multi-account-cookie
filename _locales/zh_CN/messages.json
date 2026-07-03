@@ -35,14 +35,14 @@
 
   "optionsTitle": { "message": "Cookie Switcher 设置" },
   "optionsSecurity": { "message": "安全设置" },
-  "optionsPinLock": { "message": "PIN 锁" },
-  "optionsPinEnabled": { "message": "启用 PIN 锁" },
-  "optionsPinSet": { "message": "设置 PIN 码" },
-  "optionsPinCurrent": { "message": "当前 PIN 码" },
-  "optionsPinNew": { "message": "新 PIN 码" },
-  "optionsPinConfirm": { "message": "确认 PIN 码" },
-  "optionsPinMismatch": { "message": "两次输入的 PIN 码不一致" },
-  "optionsPinSaved": { "message": "PIN 码设置已保存" },
+  "optionsPinLock": { "message": "密码锁" },
+  "optionsPinEnabled": { "message": "启用密码锁" },
+  "optionsPinSet": { "message": "设置密码" },
+  "optionsPinCurrent": { "message": "当前密码" },
+  "optionsPinNew": { "message": "新密码" },
+  "optionsPinConfirm": { "message": "确认密码" },
+  "optionsPinMismatch": { "message": "两次输入的密码不一致" },
+  "optionsPinSaved": { "message": "密码设置已保存" },
   "optionsDomainWhitelist": { "message": "域名白名单" },
   "optionsAddDomain": { "message": "添加域名" },
   "optionsDomainPlaceholder": { "message": "例如：example.com" },
@@ -52,5 +52,5 @@
   "optionsExportBtn": { "message": "导出数据（加密）" },
   "optionsImport": { "message": "数据导入" },
   "optionsImportBtn": { "message": "导入数据" },
-  "optionsDataNote": { "message": "导出的数据使用 AES-GCM 加密，输入 PIN 码方可解密导入" }
+  "optionsDataNote": { "message": "导出时设置密码加密，导入时输入对应密码解密" }
 }
