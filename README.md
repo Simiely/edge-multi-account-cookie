@@ -1,6 +1,8 @@
 # Edge Multi-Account Cookie Switcher
 
 > 安全的 Edge 多账号 Cookie 切换器 — 本地加密存储、密码锁保护，一键切换网站账号。
+>
+> **版本：** v2.2.0 | **架构：** Manifest V3 | **协议：** MIT
 
 ---
 
@@ -68,6 +70,14 @@ A: 开启后打开弹窗需输入密码。导出备份时自动使用密码锁�
 
 **Q: 重装扩展后密码和账号数据还在吗？**
 A: 从 v2.1.0 开始，manifest 中加入了 `key` 字段，扩展 ID 固定，重装后数据保留。
+
+---
+
+## 文档
+
+- **更新日志**：见 [CHANGELOG.md](./CHANGELOG.md)
+- **开发文档**：见 [DEVELOPMENT.md](./DEVELOPMENT.md)（13 条关键问题 + 构建发布）
+- **项目规则（AI 用）**：见 [AGENTS.md](./AGENTS.md)（技术栈、关键坑、约定）
 
 ---
 
