@@ -7,6 +7,16 @@
 // 默认 WebDAV 服务器（与 lib/webdav.js 的 DEFAULT_WEBDAV_URL 保持一致；URL 留空时使用）
 const DEFAULT_WEBDAV_URL = 'http://192.168.2.1:6086';
 
+/**
+ * 归一化 URL（与 lib/webdav.js normalizeWebdavUrl 一致）：留空→默认；无协议→补 http://。
+ */
+function normalizeWebdavUrl(url) {
+  const t = String(url || '').trim();
+  if (!t) return DEFAULT_WEBDAV_URL;
+  if (/^https?:\/\//i.test(t)) return t;
+  return 'http://' + t;
+}
+
 // ============================================================
 //  WebDAV DOM
 // ============================================================
@@ -110,7 +120,7 @@ async function handleWebdavTest() {
     showMsg(webdavStatus, '请填写用户名与密码', 'error');
     return;
   }
-  if (!(await ensureWebdavPermission(cfg.url || 'http://192.168.2.1:6086'))) return;
+  if (!(await ensureWebdavPermission(normalizeWebdavUrl(cfg.url)))) return;
   btnWebdavTest.disabled = true;
   btnWebdavTest.textContent = '测试中...';
   try {
@@ -132,7 +142,7 @@ async function handleWebdavSave() {
     return;
   }
   if (!(await ensureMasterKeyUnlocked())) return;
-  if (!(await ensureWebdavPermission(cfg.url || 'http://192.168.2.1:6086'))) return;
+  if (!(await ensureWebdavPermission(normalizeWebdavUrl(cfg.url)))) return;
   try {
     await sendMessage('webdav.save', cfg);
     webdavPass.value = '';

@@ -5,8 +5,8 @@
 
 const WEBDAV_ACTIONS = {
   'webdav.test': async (payload) => {
-    // URL 留空 → 使用默认服务器（DEFAULT_WEBDAV_URL）
-    const url = (payload.url || '').trim() || DEFAULT_WEBDAV_URL;
+    // URL 留空 → 默认服务器；无协议 → 自动补 http://
+    const url = normalizeWebdavUrl(payload.url);
     const { user, pass } = payload;
     if (!isValidWebdavUrl(url)) throw new Error('URL 格式不正确（需 http/https）');
     return webdavTest({ url, user, pass });
@@ -14,8 +14,7 @@ const WEBDAV_ACTIONS = {
 
   'webdav.save': async (payload) => {
     const { url, user, pass, keep, schedule, schedulePeriod } = payload;
-    // URL 留空 → 使用默认服务器（saveWebdavConfig 内部同样兜底）
-    const finalUrl = (url || '').trim() || DEFAULT_WEBDAV_URL;
+    const finalUrl = normalizeWebdavUrl(url);
     if (!isValidWebdavUrl(finalUrl)) throw new Error('URL 格式不正确（需 http/https）');
     await saveWebdavConfig({ url: finalUrl, user, pass, keep, schedule, schedulePeriod });
     await ensureBackupAlarm();
