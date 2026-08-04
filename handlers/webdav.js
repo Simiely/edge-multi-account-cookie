@@ -31,7 +31,8 @@ const WEBDAV_ACTIONS = {
       stored.lastBackupAt = Date.now();
       await setWebdavConfig(stored);
     }
-    return { filename };
+    // 返回完整远端路径，便于 UI 确认实际存储位置
+    return { filename, path: `${backupDir(cfg)}/${filename}` };
   },
 
   'webdav.pull': async (payload) => {

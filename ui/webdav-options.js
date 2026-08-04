@@ -158,7 +158,7 @@ async function handleWebdavPush() {
     btnWebdavPush.disabled = true;
     btnWebdavPush.textContent = '上传中...';
     const r = await sendMessage('webdav.push');
-    showMsg(webdavStatus, `✅ 备份已上传：${r.filename}`, 'success');
+    showMsg(webdavStatus, `✅ 备份已上传：${r.path || r.filename}`, 'success');
   } catch (e) {
     showMsg(webdavStatus, `上传失败：${e.message}`, 'error');
   } finally {
