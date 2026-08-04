@@ -33,7 +33,7 @@
 **WebDAV 远程备份（新功能）**
 - `lib/webdav.js` 协议客户端（PROPFIND/GET/PUT/DELETE + Basic Auth），走 SW 代理绕过 CORS
 - 连接测试 / 立即备份 / 下载恢复 / 定时自动备份（chrome.alarms，每日/每周）
-- 远端保留最近 N 份（默认 10）自动清理
+- 远端保留最近 N 份（默认 1，可配置）自动清理
 - WebDAV 密码用主密钥加密存储；备份文件为 AES-GCM 密文（口令 = WebDAV 密码）
 
 **其他**

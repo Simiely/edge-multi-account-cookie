@@ -54,7 +54,7 @@ async function loadSettings() {
   if (opts.webdav) {
     webdavUrl.value = opts.webdav.url || '';
     webdavUser.value = opts.webdav.user || '';
-    webdavKeep.value = opts.webdav.keep || 10;
+    webdavKeep.value = opts.webdav.keep || 1;
     webdavSchedule.value = opts.webdav.schedule || 'manual';
     webdavPass.value = '';
     webdavPass.placeholder = '已保存（留空保持不变）';
@@ -287,7 +287,7 @@ function collectWebdavConfig() {
     url: webdavUrl.value.trim(),
     user: webdavUser.value.trim(),
     pass: webdavPass.value.trim(),
-    keep: parseInt(webdavKeep.value, 10) || 10,
+    keep: parseInt(webdavKeep.value, 10) || 1,
     schedule: webdavSchedule.value
   };
 }
@@ -368,7 +368,7 @@ async function handleWebdavRemove() {
     webdavUrl.value = '';
     webdavUser.value = '';
     webdavPass.value = '';
-    webdavKeep.value = 10;
+    webdavKeep.value = 1;
     webdavSchedule.value = 'manual';
     webdavPass.placeholder = 'WebDAV 密码';
     showMsg(webdavStatus, '✅ WebDAV 配置已清除', 'success');
