@@ -45,6 +45,7 @@
 13. **WebDAV 必须在 SW 执行**：页面 fetch WebDAV 会被 CORS 拦截，只有 SW + host_permissions 可绕过；WebDAV 密码用主密钥加密存 `cookie_switcher_webdav.passEnc`，明文口令仅在 SW 内存中出现
 14. **数据版本迁移**：`DATA_VERSION=3`（storage.js），读取时惰性迁移，失败标记 `migrationPending` 不阻塞
 15. **权限最小化**：不用 `<all_urls>`，按需授权；WebDAV 服务器域名在 options 页 `permissions.request`（必须用户手势上下文）
+16. **permissions.request 禁止走 SW 消息路由**：`chrome.permissions.request()` 必须在 popup/options 页面（用户手势上下文）**直接调用**——经 sendMessage 到 SW 会报 `This function must be called during a user gesture`。SW 里只能做只读检测 `permissions.contains`（background 中仅提供 `permission.check`，无 `permission.ensure`）
 
 ## 约定
 
