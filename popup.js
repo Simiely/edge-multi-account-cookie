@@ -208,6 +208,68 @@ function bindEvents() {
   lockInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleUnlock();
   });
+  document.getElementById('btnWebdavPush').addEventListener('click', handleWebdavPush);
+  document.getElementById('btnWebdavPull').addEventListener('click', handleWebdavPull);
+}
+
+// ============================================================
+//  WebDAV 快捷备份（弹窗直传/下载，复用设置页 action）
+// ============================================================
+
+/**
+ * 检查 WebDAV 是否已配置，未配置则引导去设置页。
+ * @returns {Promise<boolean>} 已配置返回 true
+ */
+async function ensureWebdavConfigured() {
+  const opts = await sendMessage('options.get');
+  if (!opts.webdav) {
+    showStatus(statusBar, '请先在设置页配置 WebDAV', 'error');
+    setTimeout(() => chrome.runtime.openOptionsPage(), 1200);
+    return false;
+  }
+  return true;
+}
+
+async function handleWebdavPush() {
+  const btn = document.getElementById('btnWebdavPush');
+  try {
+    if (!(await ensureWebdavConfigured())) return;
+    const mk = await sendMessage('masterkey.available');
+    if (!mk.available) {
+      showStatus(statusBar, '主密钥不可用：请先在设置页解锁密码锁', 'error');
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = '⏳ 上传中...';
+    const r = await sendMessage('webdav.push');
+    showStatus(statusBar, `✅ 已上传：${r.filename}`, 'success', 5000);
+  } catch (e) {
+    showStatus(statusBar, `上传失败：${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📤 上传备份';
+  }
+}
+
+async function handleWebdavPull() {
+  const btn = document.getElementById('btnWebdavPull');
+  try {
+    if (!(await ensureWebdavConfigured())) return;
+    const mk = await sendMessage('masterkey.available');
+    if (!mk.available) {
+      showStatus(statusBar, '主密钥不可用：请先在设置页解锁密码锁', 'error');
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = '⏳ 下载中...';
+    const r = await sendMessage('webdav.pull', { mode: 'merge' });
+    showStatus(statusBar, `✅ 已恢复：新增 ${r.imported} 个账号${r.skipped ? `，跳过 ${r.skipped}` : ''}`, 'success', 5000);
+  } catch (e) {
+    showStatus(statusBar, `下载失败：${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📥 下载恢复';
+  }
 }
 
 // ============================================================
