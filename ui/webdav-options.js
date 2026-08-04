@@ -35,7 +35,7 @@ function fillWebdavSettings(webdav) {
   webdavKeep.value = webdav.keep || 1;
   webdavSchedule.value = webdav.schedule || 'manual';
   webdavPass.value = '';
-  webdavPass.placeholder = '';
+  webdavPass.placeholder = '已保存（留空保持不变）';
 }
 
 function bindWebdavEvents() {
@@ -136,7 +136,7 @@ async function handleWebdavSave() {
   try {
     await sendMessage('webdav.save', cfg);
     webdavPass.value = '';
-    webdavPass.placeholder = '';
+    webdavPass.placeholder = '已保存（留空保持不变）';
     showMsg(webdavStatus, '✅ WebDAV 配置已保存（密码已加密存储）', 'success');
   } catch (e) {
     showMsg(webdavStatus, `保存失败：${e.message}`, 'error');
@@ -183,7 +183,7 @@ async function handleWebdavRemove() {
     webdavPass.value = '';
     webdavKeep.value = 1;
     webdavSchedule.value = 'manual';
-    webdavPass.placeholder = '';
+    webdavPass.placeholder = 'WebDAV 密码';
     showMsg(webdavStatus, '✅ WebDAV 配置已清除', 'success');
   } catch (e) {
     showMsg(webdavStatus, `清除失败：${e.message}`, 'error');
