@@ -93,10 +93,11 @@ function bindEvents() {
         togglePinConfig(true);
       }
     } else {
-      // 关闭：需验证当前密码（走带锁校验）
+      // 关闭密码锁：需验证当前密码（走带锁校验），验证通过后复用同一密码解包主密钥
       const hasPassword = await isPinSetLocal();
+      let pwd = '';
       if (hasPassword) {
-        const pwd = prompt('🔐 输入当前密码以关闭密码锁：');
+        pwd = prompt('🔐 输入当前密码以关闭密码锁：');
         if (!pwd) {
           pinEnabled.checked = true;
           return;
@@ -108,12 +109,11 @@ function bindEvents() {
           return;
         }
       }
-      // 关闭密码锁：用当前密码解包主密钥
-      const current = prompt('再次输入当前密码以解密数据：') || '';
       try {
-        await sendMessage('pin.set', { newPin: '', currentPin: current });
+        // 关闭：MK 恢复明文落盘，弹窗不再要求密码（数据仍保留，只是不再受密码保护）
+        await sendMessage('pin.set', { newPin: '', currentPin: pwd });
         togglePinConfig(false);
-        showMsg(pinStatus, '密码锁已关闭', 'success');
+        showMsg(pinStatus, '密码锁已关闭，弹窗不再要求输入密码', 'success');
         pinEnabled.checked = false;
       } catch (err) {
         showMsg(pinStatus, `关闭失败：${err.message}`, 'error');
