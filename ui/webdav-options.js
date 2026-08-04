@@ -4,6 +4,9 @@
  * 依赖：lib/messaging.js（sendMessage）、options.js 的 showMsg / importMode。
  */
 
+// 默认 WebDAV 服务器（与 lib/webdav.js 的 DEFAULT_WEBDAV_URL 保持一致；URL 留空时使用）
+const DEFAULT_WEBDAV_URL = 'http://192.168.2.1:6086';
+
 // ============================================================
 //  WebDAV DOM
 // ============================================================
@@ -26,12 +29,13 @@ const webdavStatus = document.getElementById('webdavStatus');
 
 function fillWebdavSettings(webdav) {
   if (!webdav) return;
-  webdavUrl.value = webdav.url || '';
+  // URL 若为默认服务器则不回填（保持界面简洁，留空即用默认）
+  webdavUrl.value = (webdav.url && webdav.url !== DEFAULT_WEBDAV_URL) ? webdav.url : '';
   webdavUser.value = webdav.user || '';
   webdavKeep.value = webdav.keep || 1;
   webdavSchedule.value = webdav.schedule || 'manual';
   webdavPass.value = '';
-  webdavPass.placeholder = '已保存（留空保持不变）';
+  webdavPass.placeholder = '';
 }
 
 function bindWebdavEvents() {
@@ -101,11 +105,12 @@ function collectWebdavConfig() {
 
 async function handleWebdavTest() {
   const cfg = collectWebdavConfig();
-  if (!cfg.url || !cfg.user || !cfg.pass) {
-    showMsg(webdavStatus, '请先填写服务器 URL、用户名、密码', 'error');
+  // URL 可留空（自动使用默认服务器），仅账号密码必填
+  if (!cfg.user || !cfg.pass) {
+    showMsg(webdavStatus, '请填写用户名与密码', 'error');
     return;
   }
-  if (!(await ensureWebdavPermission(cfg.url))) return;
+  if (!(await ensureWebdavPermission(cfg.url || 'http://192.168.2.1:6086'))) return;
   btnWebdavTest.disabled = true;
   btnWebdavTest.textContent = '测试中...';
   try {
@@ -121,16 +126,17 @@ async function handleWebdavTest() {
 
 async function handleWebdavSave() {
   const cfg = collectWebdavConfig();
-  if (!cfg.url || !cfg.user) {
-    showMsg(webdavStatus, '请填写服务器 URL 与用户名', 'error');
+  // URL 可留空（自动使用默认服务器），仅用户名必填
+  if (!cfg.user) {
+    showMsg(webdavStatus, '请填写用户名', 'error');
     return;
   }
   if (!(await ensureMasterKeyUnlocked())) return;
-  if (!(await ensureWebdavPermission(cfg.url))) return;
+  if (!(await ensureWebdavPermission(cfg.url || 'http://192.168.2.1:6086'))) return;
   try {
     await sendMessage('webdav.save', cfg);
     webdavPass.value = '';
-    webdavPass.placeholder = '已保存（留空保持不变）';
+    webdavPass.placeholder = '';
     showMsg(webdavStatus, '✅ WebDAV 配置已保存（密码已加密存储）', 'success');
   } catch (e) {
     showMsg(webdavStatus, `保存失败：${e.message}`, 'error');
@@ -177,7 +183,7 @@ async function handleWebdavRemove() {
     webdavPass.value = '';
     webdavKeep.value = 1;
     webdavSchedule.value = 'manual';
-    webdavPass.placeholder = 'WebDAV 密码';
+    webdavPass.placeholder = '';
     showMsg(webdavStatus, '✅ WebDAV 配置已清除', 'success');
   } catch (e) {
     showMsg(webdavStatus, `清除失败：${e.message}`, 'error');
