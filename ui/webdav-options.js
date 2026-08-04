@@ -8,13 +8,12 @@
 const DEFAULT_WEBDAV_URL = 'http://192.168.2.1:6086';
 
 /**
- * 归一化 URL（与 lib/webdav.js normalizeWebdavUrl 一致）：留空→默认；无协议→补 http://。
+ * 归一化 URL（与 lib/webdav.js normalizeWebdavUrl 一致）：仅去空白；留空用默认。
+ * 不自动补协议——用户填什么就是什么。
  */
 function normalizeWebdavUrl(url) {
   const t = String(url || '').trim();
-  if (!t) return DEFAULT_WEBDAV_URL;
-  if (/^https?:\/\//i.test(t)) return t;
-  return 'http://' + t;
+  return t || DEFAULT_WEBDAV_URL;
 }
 
 // ============================================================
