@@ -418,7 +418,7 @@ var CONFIG = {
     badgeLabel: "Tech Stack",
     badgeIcon: "🔐",
     tags: ["Manifest V3", "AES-GCM", "零第三方依赖"],
-    tickerItems: ["一键切换账号", "AES-256-GCM 加密", "密码锁保护", "域名白名单", "Alt+Shift+S 快捷键", "加密备份导入导出"]
+    tickerItems: ["一键切换账号", "AES-256-GCM 加密", "密码锁保护", "WebDAV 远程备份", "Alt+Shift+S 快捷键", "加密备份导入导出"]
   },
 
   // ──── Problem 痛点屏 ────
@@ -443,7 +443,7 @@ var CONFIG = {
       { icon: "💾", name: "保存账号", desc: "自动抓取当前登录状态的 Cookie（含 httpOnly）和 localStorage 数据，一键保存" },
       { icon: "🔒", name: "AES-GCM 加密", desc: "Cookie value 使用 Web Crypto API 加密存储，即使本地数据被读取也无法解密" },
       { icon: "🔐", name: "密码锁", desc: "自定义密码保护弹窗，关闭需验证原密码，导出备份自动使用密码锁密码加密" },
-      { icon: "🌐", name: "域名白名单", desc: "可配置允许操作的域名列表，避免误操作，精确控制扩展的作用范围" },
+      { icon: "☁️", name: "WebDAV 备份", desc: "加密备份上传到 WebDAV 服务器（坚果云/Nextcloud），支持定时自动备份" },
       { icon: "📦", name: "加密备份", desc: "数据使用密码锁密码加密导出/导入，无需额外设置，安全迁移数据" }
     ]
   },
@@ -567,7 +567,7 @@ var CONFIG = {
         <span class="ticker__item">一键切换账号</span>
         <span class="ticker__item">AES-256-GCM 加密</span>
         <span class="ticker__item">密码锁保护</span>
-        <span class="ticker__item">域名白名单</span>
+        <span class="ticker__item">WebDAV 远程备份</span>
         <span class="ticker__item">Alt+Shift+S 快捷键</span>
         <span class="ticker__item">加密备份导入导出</span>
       </div>

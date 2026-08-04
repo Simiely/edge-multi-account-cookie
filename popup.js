@@ -94,19 +94,6 @@ async function initCurrentTab() {
 
   if (!currentDomain) return;
 
-  const opts = await sendMessage('options.get');
-  if (!opts.pinSet) {
-    // 无锁时主密钥未解锁（MK 明文落盘，getMasterKey 直接可用）——无需额外处理
-  }
-
-  // 白名单检查
-  if (!(await isDomainAllowed(currentDomain))) {
-    showStatus(statusBar, `域名 ${currentDomain} 不在白名单中`, 'error', 0);
-    btnSave.disabled = true;
-    btnLoginNew.disabled = true;
-    return;
-  }
-
   await verifyCookieAccess();
 }
 

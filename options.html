@@ -76,14 +76,6 @@
     .btn-outline:hover { background: var(--surface-hover); }
     .btn-sm { padding: 5px 10px; font-size: 12px; }
 
-    .domain-list { margin-top: 8px; }
-    .domain-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 6px 10px; background: var(--bg); border-radius: 4px;
-      margin-bottom: 4px; font-size: 13px; font-family: monospace;
-    }
-    .domain-item .remove-btn { cursor: pointer; color: var(--danger); background: none; border: none; font-size: 14px; }
-
     .status-msg {
       margin-top: 8px; padding: 8px 10px; border-radius: 4px; font-size: 12px; display: none;
     }
@@ -142,20 +134,6 @@
   </div>
 
   <div class="status-msg" id="pinStatus"></div>
-</div>
-
-<!-- Domain Whitelist -->
-<div class="section">
-  <div class="section-title">🌐 域名白名单</div>
-  <div class="section-desc">仅白名单中的域名可进行操作。支持通配符（*.example.com）。留空则允许所有域名。</div>
-
-  <div class="form-row">
-    <input type="text" id="inputDomain" placeholder="输入域名，如 example.com 或 *.example.com" />
-    <button class="btn btn-primary btn-sm" id="btnAddDomain">添加</button>
-  </div>
-
-  <div class="domain-list" id="domainList"></div>
-  <div class="status-msg" id="domainStatus"></div>
 </div>
 
 <!-- Export/Import -->

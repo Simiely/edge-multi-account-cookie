@@ -18,12 +18,12 @@
 │   ├── crypto.js        # AES-GCM + PBKDF2(60w) + 主密钥 + 分块 base64 —— 零 chrome API
 │   ├── storage.js       # storage.local CRUD + 账号模型 + 版本迁移 + 主密钥落盘
 │   ├── cookies.js       # Cookie/页面数据操作 + applyCookies（partitionKey/回滚）
-│   ├── security.js      # 密码锁（PBKDF2 + 防爆破）+ 白名单
+│   ├── security.js      # 密码锁（PBKDF2 + 防爆破）
 │   ├── backup.js        # 本地导出/导入（merge/replace）
 │   ├── webdav.js        # WebDAV 协议客户端（SW 内执行）
 │   └── messaging.js     # 消息层：sendMessage 封装 + sender 校验 + action 分发
 ├── popup.html/js        # 弹窗 UI（锁屏遮罩 + 账号列表）
-├── options.html/js      # 设置页（密码锁/白名单/备份/WebDAV）
+├── options.html/js      # 设置页（密码锁/备份/WebDAV）
 ├── _locales/            # zh_CN + en
 └── assets/              # 图标
 ```

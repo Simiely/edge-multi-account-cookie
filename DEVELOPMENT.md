@@ -5,7 +5,7 @@
 
 ## 项目概览
 
-Edge/Chrome MV3 扩展（v2.5.0），保存和切换多网站账号 Cookie。AES-256-GCM 加密存储（主密钥方案）+ 密码锁（PBKDF2 + 防爆破）+ 域名白名单 + WebDAV 远程备份，纯原生 JS 零依赖。设计原则：权限最小化、数据本地加密、消息层收口、杜绝供应链风险。
+Edge/Chrome MV3 扩展（v2.5.0），保存和切换多网站账号 Cookie。AES-256-GCM 加密存储（主密钥方案）+ 密码锁（PBKDF2 + 防爆破）+ WebDAV 远程备份，纯原生 JS 零依赖。设计原则：权限最小化、数据本地加密、消息层收口、杜绝供应链风险。
 
 ## 架构说明
 
@@ -17,7 +17,7 @@ edge-multi-account-cookie/
 │   ├── crypto.js        # 加密：AES-GCM + PBKDF2(60w) + 主密钥 + 分块 base64
 │   ├── storage.js       # 数据层：账号 CRUD + 版本迁移 + 主密钥落盘
 │   ├── cookies.js       # Cookie/页面数据 + applyCookies（partitionKey/回滚）
-│   ├── security.js      # 密码锁 + 防暴力破解 + 白名单
+│   ├── security.js      # 密码锁 + 防暴力破解
 │   ├── backup.js        # 本地导出/导入（merge/replace）
 │   ├── webdav.js        # WebDAV 协议客户端（SW 内执行）
 │   └── messaging.js     # 消息层（sendMessage + sender 校验 + action 分发）

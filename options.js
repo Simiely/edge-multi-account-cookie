@@ -15,12 +15,6 @@ const btnSavePin = $('btnSavePin');
 const pinStatus = $('pinStatus');
 const lockBanner = $('lockBanner');
 
-// Whitelist
-const inputDomain = $('inputDomain');
-const btnAddDomain = $('btnAddDomain');
-const domainList = $('domainList');
-const domainStatus = $('domainStatus');
-
 // Backup
 const btnExport = $('btnExport');
 const fileInput = $('fileInput');
@@ -55,9 +49,6 @@ async function loadSettings() {
   // PIN
   pinEnabled.checked = opts.pinSet;
   togglePinConfig(opts.pinSet);
-
-  // Whitelist
-  await renderWhitelist(opts.whitelist);
 
   // WebDAV（不回传密码，仅填充非敏感字段）
   if (opts.webdav) {
@@ -124,12 +115,6 @@ function bindEvents() {
 
   btnSavePin.addEventListener('click', handleSavePin);
 
-  // Whitelist
-  btnAddDomain.addEventListener('click', handleAddDomain);
-  inputDomain.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleAddDomain();
-  });
-
   // Backup
   btnExport.addEventListener('click', handleExport);
   fileInput.addEventListener('change', handleImport);
@@ -194,77 +179,6 @@ async function handleSavePin() {
   } catch (e) {
     showMsg(pinStatus, `保存失败：${e.message}`, 'error');
   }
-}
-
-// ============================================================
-//  Whitelist
-// ============================================================
-
-async function renderWhitelist(whitelist) {
-  const list = whitelist || [];
-  domainList.innerHTML = '';
-
-  if (list.length === 0) {
-    domainList.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);padding:8px;">暂无域名，将允许所有网站</div>';
-    return;
-  }
-
-  for (const domain of list) {
-    const item = document.createElement('div');
-    item.className = 'domain-item';
-
-    const name = document.createElement('span');
-    name.textContent = domain;
-    item.appendChild(name);
-
-    const btn = document.createElement('button');
-    btn.className = 'remove-btn';
-    btn.textContent = '✕';
-    btn.addEventListener('click', async () => {
-      await removeFromWhitelist(domain);
-    });
-    item.appendChild(btn);
-
-    domainList.appendChild(item);
-  }
-}
-
-async function fetchWhitelist() {
-  const opts = await sendMessage('options.get');
-  return opts.whitelist;
-}
-
-async function handleAddDomain() {
-  let domain = inputDomain.value.trim().toLowerCase();
-  if (!domain) {
-    showMsg(domainStatus, '请输入域名', 'error');
-    return;
-  }
-  domain = normalizeDomain(domain);
-
-  if (!/^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(domain)) {
-    showMsg(domainStatus, '域名格式不正确', 'error');
-    return;
-  }
-
-  const whitelist = await fetchWhitelist();
-  if (whitelist.includes(domain)) {
-    showMsg(domainStatus, '该域名已在白名单中', 'error');
-    return;
-  }
-
-  whitelist.push(domain);
-  await sendMessage('whitelist.set', { domains: whitelist });
-  inputDomain.value = '';
-  await renderWhitelist(whitelist);
-  showMsg(domainStatus, `已添加 ${domain}`, 'success');
-}
-
-async function removeFromWhitelist(domain) {
-  let whitelist = await fetchWhitelist();
-  whitelist = whitelist.filter((d) => d !== domain);
-  await sendMessage('whitelist.set', { domains: whitelist });
-  await renderWhitelist(whitelist);
 }
 
 // ============================================================

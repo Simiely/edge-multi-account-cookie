@@ -123,6 +123,8 @@ function rebuildContextMenus() {
 chrome.runtime.onInstalled.addListener((details) => {
   rebuildContextMenus();
   ensureBackupAlarm();
+  // 清理已被移除功能的遗留数据（白名单）
+  chrome.storage.local.remove('cookie_switcher_whitelist').catch(() => {});
   if (details.reason === 'install') {
     log('log', 'Cookie Switcher 已安装。按 Alt+Shift+S 快速打开。');
   }
@@ -310,18 +312,12 @@ registerMessageHandler({
 
   // ---- 设置 ----
   'options.get': async () => {
-    const [whitelist, pinSet, webdav, mkWrapped] = await Promise.all([
-      getWhitelist(),
+    const [pinSet, webdav, mkWrapped] = await Promise.all([
       isPinSet(),
       getWebdavConfig(),
       isMasterKeyWrapped()
     ]);
-    return { whitelist, pinSet, webdav: webdav ? { ...webdav, passEnc: undefined } : null, mkWrapped };
-  },
-
-  'whitelist.set': async (payload) => {
-    await setWhitelist(payload.domains || []);
-    return { ok: true };
+    return { pinSet, webdav: webdav ? { ...webdav, passEnc: undefined } : null, mkWrapped };
   },
 
   // ---- 密码锁 ----

@@ -50,10 +50,6 @@
   "optionsPinConfirm": { "message": "确认密码" },
   "optionsPinMismatch": { "message": "两次输入的密码不一致" },
   "optionsPinSaved": { "message": "密码设置已保存" },
-  "optionsDomainWhitelist": { "message": "域名白名单" },
-  "optionsAddDomain": { "message": "添加域名" },
-  "optionsDomainPlaceholder": { "message": "例如：example.com 或 *.example.com" },
-  "optionsWhitelistNote": { "message": "仅白名单中的域名可进行操作（支持通配符，留空则允许所有）" },
 
   "optionsExport": { "message": "数据导出" },
   "optionsExportBtn": { "message": "导出数据（加密）" },

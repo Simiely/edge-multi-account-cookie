@@ -50,10 +50,6 @@
   "optionsPinConfirm": { "message": "Confirm Password" },
   "optionsPinMismatch": { "message": "Passwords do not match" },
   "optionsPinSaved": { "message": "Password saved successfully" },
-  "optionsDomainWhitelist": { "message": "Domain Whitelist" },
-  "optionsAddDomain": { "message": "Add Domain" },
-  "optionsDomainPlaceholder": { "message": "e.g. example.com or *.example.com" },
-  "optionsWhitelistNote": { "message": "Only whitelisted domains can be operated (wildcards supported; leave empty to allow all)" },
 
   "optionsExport": { "message": "Export Data" },
   "optionsExportBtn": { "message": "Export (Encrypted)" },
