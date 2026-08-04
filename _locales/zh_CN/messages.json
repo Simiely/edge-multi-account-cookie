@@ -1,6 +1,6 @@
 {
   "extName": { "message": "Cookie Switcher - 多账号切换助手" },
-  "extDesc": { "message": "安全地保存和切换多网站账号 Cookie，数据本地加密存储" },
+  "extDesc": { "message": "安全地保存和切换多网站账号 Cookie，数据本地加密存储，支持 WebDAV 远程备份" },
 
   "currentSite": { "message": "当前网站" },
   "domainPlaceholder": { "message": "正在获取当前标签页域名..." },
@@ -14,11 +14,13 @@
   "btnSave": { "message": "💾 保存当前账号" },
   "btnSwitch": { "message": "🔄 切换到该账号" },
   "btnDelete": { "message": "🗑️ 删除" },
+  "btnEdit": { "message": "✎ 编辑" },
   "btnLoginNew": { "message": "➕ 登录新账号" },
   "btnOptions": { "message": "⚙️ 设置" },
 
   "noAccounts": { "message": "暂无保存的账号" },
   "accountCount": { "message": "共 {count} 个账号" },
+  "accountExpired": { "message": "⚠ 该账号 Cookie 已全部过期" },
 
   "msgSaved": { "message": "✓ 账号已保存" },
   "msgSwitched": { "message": "✓ 已切换到「{name}」" },
@@ -32,6 +34,11 @@
   "labelUngrouped": { "message": "未分组" },
 
   "confirmDelete": { "message": "确定要删除「{name}」的账号数据吗？" },
+  "lockTitle": { "message": "已开启密码锁" },
+  "lockPlaceholder": { "message": "输入密码解锁" },
+  "lockUnlock": { "message": "解锁" },
+  "lockWrongPin": { "message": "密码错误" },
+  "lockLocked": { "message": "尝试次数过多，请 {seconds}s 后重试" },
 
   "optionsTitle": { "message": "Cookie Switcher 设置" },
   "optionsSecurity": { "message": "安全设置" },
@@ -45,12 +52,28 @@
   "optionsPinSaved": { "message": "密码设置已保存" },
   "optionsDomainWhitelist": { "message": "域名白名单" },
   "optionsAddDomain": { "message": "添加域名" },
-  "optionsDomainPlaceholder": { "message": "例如：example.com" },
-  "optionsWhitelistNote": { "message": "仅白名单中的域名可进行操作（留空则允许所有）" },
+  "optionsDomainPlaceholder": { "message": "例如：example.com 或 *.example.com" },
+  "optionsWhitelistNote": { "message": "仅白名单中的域名可进行操作（支持通配符，留空则允许所有）" },
 
   "optionsExport": { "message": "数据导出" },
   "optionsExportBtn": { "message": "导出数据（加密）" },
   "optionsImport": { "message": "数据导入" },
   "optionsImportBtn": { "message": "导入数据" },
-  "optionsDataNote": { "message": "导出时设置密码加密，导入时输入对应密码解密" }
+  "optionsDataNote": { "message": "导出时输入密码加密，导入时输入对应密码解密" },
+
+  "optionsWebdav": { "message": "WebDAV 远程备份" },
+  "optionsWebdavDesc": { "message": "将加密备份上传到 WebDAV 服务器（如坚果云、Nextcloud）。需先启用密码锁；远端文件为 AES-GCM 密文。" },
+  "optionsWebdavUrl": { "message": "服务器 URL" },
+  "optionsWebdavUser": { "message": "用户名" },
+  "optionsWebdavPass": { "message": "密码" },
+  "optionsWebdavKeep": { "message": "保留份数" },
+  "optionsWebdavSchedule": { "message": "自动备份" },
+  "optionsWebdavManual": { "message": "手动（仅点击备份）" },
+  "optionsWebdavDaily": { "message": "每天" },
+  "optionsWebdavWeekly": { "message": "每周" },
+  "optionsWebdavTest": { "message": "🔌 连接测试" },
+  "optionsWebdavSave": { "message": "💾 保存配置" },
+  "optionsWebdavPush": { "message": "📤 立即备份" },
+  "optionsWebdavPull": { "message": "📥 下载恢复" },
+  "optionsWebdavRemove": { "message": "🗑 清除配置" }
 }

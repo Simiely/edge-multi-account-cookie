@@ -29,180 +29,80 @@
       margin: 0 auto;
     }
 
-    h1 {
-      font-size: 20px;
-      color: var(--primary);
-      margin-bottom: 24px;
-    }
+    h1 { font-size: 20px; color: var(--primary); margin-bottom: 24px; }
 
     .section {
-      background: var(--surface);
-      border-radius: var(--radius);
-      padding: 16px;
-      margin-bottom: 16px;
-      border: 1px solid var(--border);
+      background: var(--surface); border-radius: var(--radius); padding: 16px;
+      margin-bottom: 16px; border: 1px solid var(--border);
     }
+    .section-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+    .section-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
 
-    .section-title {
-      font-size: 13px;
-      font-weight: 600;
-      margin-bottom: 12px;
-      color: var(--text);
-    }
-
-    .section-desc {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-bottom: 12px;
-    }
-
-    .form-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-
-    .form-row label:not(.toggle) {
-      font-size: 13px;
-      min-width: 70px;
-      flex-shrink: 0;
-    }
+    .form-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .form-row label:not(.toggle) { font-size: 13px; min-width: 70px; flex-shrink: 0; }
 
     .form-row input[type="text"],
     .form-row input[type="password"],
-    .form-row input[type="number"] {
-      flex: 1;
-      padding: 8px 10px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      color: var(--text);
-      font-size: 13px;
-      outline: none;
+    .form-row input[type="number"],
+    .form-row select {
+      flex: 1; min-width: 160px; padding: 8px 10px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 13px; outline: none;
     }
-    .form-row input:focus {
-      border-color: var(--primary);
-    }
-    .form-row input::placeholder {
-      color: var(--text-secondary);
-    }
+    .form-row input:focus, .form-row select:focus { border-color: var(--primary); }
+    .form-row input::placeholder { color: var(--text-secondary); }
 
-    .toggle {
-      position: relative;
-      display: inline-block;
-      width: 40px;
-      height: 22px;
-    }
-    .toggle input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
+    .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
     .toggle .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: var(--border);
-      border-radius: 22px;
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--border); border-radius: 22px;
     }
     .toggle .slider::before {
-      content: '';
-      position: absolute;
-      height: 16px;
-      width: 16px;
-      left: 3px;
-      bottom: 3px;
-      background: var(--text);
-      border-radius: 50%;
+      content: ''; position: absolute; height: 16px; width: 16px;
+      left: 3px; bottom: 3px; background: var(--text); border-radius: 50%;
     }
-    .toggle input:checked + .slider {
-      background: var(--primary);
-    }
-    .toggle input:checked + .slider::before {
-      transform: translateX(18px);
-    }
-    .toggle input:checked + .slider {
-      background: var(--primary);
-    }
-    .toggle input:checked + .slider::before {
-      transform: translateX(18px);
-    }
+    .toggle input:checked + .slider { background: var(--primary); }
+    .toggle input:checked + .slider::before { transform: translateX(18px); }
 
     .btn {
-      padding: 8px 16px;
-      border: none;
-      border-radius: var(--radius);
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.15s;
+      padding: 8px 16px; border: none; border-radius: var(--radius); cursor: pointer;
+      font-size: 13px; font-weight: 500; transition: all 0.15s;
     }
     .btn:active { transform: scale(0.97); }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover { background: var(--primary-hover); }
     .btn-danger { background: var(--danger); color: #fff; }
-    .btn-outline {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-    }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
     .btn-outline:hover { background: var(--surface-hover); }
     .btn-sm { padding: 5px 10px; font-size: 12px; }
 
     .domain-list { margin-top: 8px; }
     .domain-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 10px;
-      background: var(--bg);
-      border-radius: 4px;
-      margin-bottom: 4px;
-      font-size: 13px;
-      font-family: monospace;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 10px; background: var(--bg); border-radius: 4px;
+      margin-bottom: 4px; font-size: 13px; font-family: monospace;
     }
-    .domain-item .remove-btn {
-      cursor: pointer;
-      color: var(--danger);
-      background: none;
-      border: none;
-      font-size: 14px;
-    }
+    .domain-item .remove-btn { cursor: pointer; color: var(--danger); background: none; border: none; font-size: 14px; }
 
     .status-msg {
-      margin-top: 8px;
-      padding: 8px 10px;
-      border-radius: 4px;
-      font-size: 12px;
-      display: none;
+      margin-top: 8px; padding: 8px 10px; border-radius: 4px; font-size: 12px; display: none;
     }
     .status-msg.show { display: block; }
-    .status-msg.success {
-      background: rgba(46,204,113,0.15);
-      color: #2ecc71;
-      border: 1px solid rgba(46,204,113,0.3);
-    }
-    .status-msg.error {
-      background: rgba(231,76,60,0.15);
-      color: #e74c3c;
-      border: 1px solid rgba(231,76,60,0.3);
-    }
+    .status-msg.success { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+    .status-msg.error { background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+    .status-msg.warning { background: rgba(243,156,18,0.15); color: #f39c12; border: 1px solid rgba(243,156,18,0.3); }
 
     .hidden { display: none !important; }
 
-    .file-input-wrapper {
-      position: relative;
-      overflow: hidden;
-      display: inline-block;
-    }
+    .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
     .file-input-wrapper input[type="file"] {
-      position: absolute;
-      left: 0; top: 0;
-      opacity: 0;
-      width: 100%;
-      height: 100%;
-      cursor: pointer;
+      position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer;
+    }
+
+    .webdav-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .lock-banner {
+      padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 10px;
+      background: rgba(243,156,18,0.12); border: 1px solid rgba(243,156,18,0.3); color: #f39c12;
     }
   </style>
 </head>
@@ -213,7 +113,9 @@
 <!-- Security: PIN Lock -->
 <div class="section">
   <div class="section-title">🔒 密码锁</div>
-  <div class="section-desc">开启后，打开扩展弹窗需输入密码验证</div>
+  <div class="section-desc">开启后，打开扩展弹窗需输入密码验证；数据将以密码保护的主密钥加密。连续输错 5 次将锁定。</div>
+
+  <div id="lockBanner" class="lock-banner hidden"></div>
 
   <div class="form-row">
     <label>启用密码锁</label>
@@ -245,10 +147,10 @@
 <!-- Domain Whitelist -->
 <div class="section">
   <div class="section-title">🌐 域名白名单</div>
-  <div class="section-desc">仅白名单中的域名可进行操作。留空则允许所有域名。</div>
+  <div class="section-desc">仅白名单中的域名可进行操作。支持通配符（*.example.com）。留空则允许所有域名。</div>
 
   <div class="form-row">
-    <input type="text" id="inputDomain" placeholder="输入域名，如 example.com" />
+    <input type="text" id="inputDomain" placeholder="输入域名，如 example.com 或 *.example.com" />
     <button class="btn btn-primary btn-sm" id="btnAddDomain">添加</button>
   </div>
 
@@ -258,8 +160,8 @@
 
 <!-- Export/Import -->
 <div class="section">
-  <div class="section-title">📦 数据备份</div>
-  <div class="section-desc">数据使用 AES-GCM 加密导出，导入时需输入正确的密码。</div>
+  <div class="section-title">📦 数据备份（本地）</div>
+  <div class="section-desc">导出/导入时输入密码加密/解密（需先设置密码锁）。导入可选合并或覆盖。</div>
 
   <div class="form-row" style="flex-wrap:wrap; gap:8px;">
     <button class="btn btn-primary" id="btnExport">📤 导出数据（加密）</button>
@@ -269,10 +171,63 @@
     </div>
   </div>
 
+  <div class="form-row" style="margin-top:8px;">
+    <label style="min-width:auto;">导入模式</label>
+    <select id="importMode">
+      <option value="merge">合并（保留现有，同名账号跳过）</option>
+      <option value="replace">覆盖（清空现有数据）</option>
+    </select>
+  </div>
+
   <div class="status-msg" id="backupStatus"></div>
 </div>
 
-<script src="utils.js"></script>
+<!-- WebDAV Backup -->
+<div class="section">
+  <div class="section-title">☁️ WebDAV 远程备份</div>
+  <div class="section-desc">将加密备份上传到 WebDAV 服务器（如坚果云、Nextcloud）。需先启用密码锁；密码加密存储，远端文件为 AES-GCM 密文。</div>
+
+  <div class="form-row">
+    <label>服务器 URL</label>
+    <input type="text" id="webdavUrl" placeholder="https://dav.example.com/cookie-backup" />
+  </div>
+  <div class="form-row">
+    <label>用户名</label>
+    <input type="text" id="webdavUser" placeholder="WebDAV 用户名" autocomplete="off" />
+  </div>
+  <div class="form-row">
+    <label>密码</label>
+    <input type="password" id="webdavPass" placeholder="WebDAV 密码" autocomplete="off" />
+  </div>
+  <div class="form-row">
+    <label>保留份数</label>
+    <input type="number" id="webdavKeep" value="10" min="1" max="50" style="max-width:80px;" />
+  </div>
+  <div class="form-row">
+    <label>自动备份</label>
+    <select id="webdavSchedule" style="max-width:200px;">
+      <option value="manual">手动（仅点击备份）</option>
+      <option value="daily">每天</option>
+      <option value="weekly">每周</option>
+    </select>
+  </div>
+
+  <div class="webdav-actions">
+    <button class="btn btn-outline btn-sm" id="btnWebdavTest">🔌 连接测试</button>
+    <button class="btn btn-primary btn-sm" id="btnWebdavSave">💾 保存配置</button>
+    <button class="btn btn-outline btn-sm" id="btnWebdavPush">📤 立即备份</button>
+    <button class="btn btn-outline btn-sm" id="btnWebdavPull">📥 下载恢复</button>
+    <button class="btn btn-danger btn-sm" id="btnWebdavRemove">🗑 清除配置</button>
+  </div>
+
+  <div class="status-msg" id="webdavStatus"></div>
+</div>
+
+<script src="lib/crypto.js"></script>
+<script src="lib/storage.js"></script>
+<script src="lib/cookies.js"></script>
+<script src="lib/security.js"></script>
+<script src="lib/messaging.js"></script>
 <script src="options.js"></script>
 </body>
 </html>
