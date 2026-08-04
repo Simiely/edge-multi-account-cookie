@@ -2,6 +2,11 @@
 
 ## v2.5.0（当前版本）
 
+**兼容性（重要）**
+- **旧备份文件兼容导入**：v2.2 及更早导出的备份（PBKDF2 10 万次迭代加密）现在可正常导入——`decrypt()` 先尝试 60 万次迭代，失败后自动回退 10 万次，两者都失败才报"解密失败"
+- 本地已有账号数据**无感迁移**：v2 明文 Cookie 首次打开自动用主密钥加密（v3），无需手动操作
+- 旧 SHA-256 密码锁格式验证通过后自动升级为 PBKDF2 新格式
+
 **架构重构（v2.2 大杂烩 → lib/ 七模块单向依赖）**
 - `utils.js` 拆分为 `lib/{crypto,storage,cookies,security,backup,messaging,webdav}.js`
 - 新增 `lib/messaging.js` 消息层：popup/options 所有 `chrome.*` 调用统一收口到 Service Worker 路由（Promise 封装 + return true 保活 + sender 校验）
