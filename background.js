@@ -205,14 +205,14 @@ registerMessageHandler({
     return { supported: true, domain: extractDomain(url), tabId: tab.id };
   },
 
-  // ---- 权限 ----
-  'permission.ensure': async (payload) => {
+  // ---- 权限检测（只读）----
+  // 注意：permissions.request 必须在用户手势上下文（popup/options 页面）直接调用，
+  // 不能经消息路由到 SW（SW 无手势 → "must be called during a user gesture"）。
+  'permission.check': async (payload) => {
     const { domain } = payload;
     const url = `*://${domain}/*`;
     const has = await chrome.permissions.contains({ origins: [url] });
-    if (has) return { granted: true };
-    const granted = await chrome.permissions.request({ origins: [url] });
-    return { granted: !!granted };
+    return { granted: has };
   },
 
   // ---- 账号 CRUD ----

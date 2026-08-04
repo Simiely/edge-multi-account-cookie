@@ -137,8 +137,11 @@ async function verifyCookieAccess() {
 
 async function requestHostPermission() {
   try {
-    const r = await sendMessage('permission.ensure', { domain: currentDomain });
-    if (r.granted) {
+    // 注意：permissions.request 必须在用户手势上下文（popup 页面）直接调用，
+    // 不能走 sendMessage 到 SW——SW 无手势上下文会报 "must be called during a user gesture"
+    const url = `*://${currentDomain}/*`;
+    const granted = await chrome.permissions.request({ origins: [url] });
+    if (granted) {
       showStatus(statusBar, `✓ 已获得 ${currentDomain} 的访问权限`, 'success');
       grantBanner.style.display = 'none';
       btnSave.disabled = false;
