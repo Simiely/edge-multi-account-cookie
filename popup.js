@@ -366,7 +366,7 @@ async function handleSwitchAccount(name, account) {
     showStatus(statusBar, msg, r.failed.length > 0 ? 'warning' : 'success');
 
     if (r.failed.length === 0 || r.rolledBack) {
-      await chrome.tabs.reload(currentTabId);
+      await sendMessage('tab.reload', { tabId: currentTabId });
     }
   } catch (e) {
     showStatus(statusBar, `切换失败：${e.message}`, 'error');
@@ -423,7 +423,7 @@ async function handleLoginNew() {
     } else {
       showStatus(statusBar, '⚠️ 没有 Cookie 被清除，可能缺少权限', 'error');
     }
-    await chrome.tabs.reload(currentTabId);
+    await sendMessage('tab.reload', { tabId: currentTabId });
   } catch (e) {
     showStatus(statusBar, `清除失败：${e.message}`, 'error');
   }

@@ -13,7 +13,7 @@
 
 ```
 ├── manifest.json        # MV3 配置（key 固定 ID；permissions 含 alarms）
-├── background.js        # SW 入口：消息路由 + 右键菜单 + alarms 定时备份
+├── background.js        # SW 入口：importScripts 装配 + 右键菜单 + alarms 定时备份
 ├── lib/                 # 核心层（无 DOM 依赖，页面/SW 通用）
 │   ├── crypto.js        # AES-GCM + PBKDF2(60w) + 主密钥 + 分块 base64 —— 零 chrome API
 │   ├── storage.js       # storage.local CRUD + 账号模型 + 版本迁移 + 主密钥落盘
@@ -22,6 +22,14 @@
 │   ├── backup.js        # 本地导出/导入（merge/replace）
 │   ├── webdav.js        # WebDAV 协议客户端（SW 内执行）
 │   └── messaging.js     # 消息层：sendMessage 封装 + sender 校验 + action 分发
+├── handlers/            # SW 消息路由 action（按域拆分，background importScripts 加载）
+│   ├── tab.js           # tab.getCurrent / tab.reload / permission.check
+│   ├── account.js       # account.* / site.clear
+│   ├── settings.js      # options.get / pin.* / masterkey.available
+│   ├── backup.js        # backup.export / backup.import
+│   └── webdav.js        # webdav.*
+├── ui/                  # UI 侧按功能拆分的脚本
+│   └── webdav-options.js# 设置页 WebDAV 区块逻辑（fillWebdavSettings/bindWebdavEvents）
 ├── popup.html/js        # 弹窗 UI（锁屏遮罩 + 账号列表）
 ├── options.html/js      # 设置页（密码锁/备份/WebDAV）
 ├── _locales/            # zh_CN + en
@@ -36,12 +44,12 @@
 4. **重装丢数据**：`chrome.storage.local` 按扩展 ID 隔离，manifest `key`（RSA 公钥 SPKI Base64）固定扩展 ID（key.pem 私钥不提交 Git）
 5. **栈溢出**：`btoa(String.fromCharCode(...packed))` 展开运算符拆大数组超参数限制 → **按 8KB 分块**；解密侧 `atob().split('').map()` 也改 for 循环（`lib/crypto.js` 已处理）
 6. **Edge 特有**：`contextMenus` 权限 Edge 必须显式声明；`type: "module"` 无实际 import/export 时 Edge 解析失败（不加）；加载扩展时 Edge 复制到 UnpackedExtensions，改源码要确认实际加载路径
-7. **importScripts 顺序敏感**：background.js 引入 lib 必须按 crypto → storage → cookies → security → backup → webdav → messaging 顺序
+7. **importScripts 顺序敏感**：background.js 先引入 lib/（crypto → storage → cookies → security → backup → webdav → messaging）再引入 handlers/（tab → account → settings → backup → webdav）
 8. **主密钥（Master Key）机制**：cookie value 落库一律 `'enc:' + encryptWithKey(value, MK)`；无锁时 MK 明文落盘，有锁时 MK 被锁派生密钥包裹（wrapped=true）。`getMasterKey()` 优先读 session 缓存——**有锁且本会话未解锁时返回 null**，调用方必须先走 `pin.unlock`
 9. **PBKDF2 密码哈希用 deriveBits**：`deriveKey()` 产出的 CryptoKey `extractable=false`，不能 `exportKey` 取哈希——密码验证哈希用 `crypto.subtle.deriveBits(..., 256)` 直接取字节
 10. **防暴力破解**：所有密码验证必须走 `verifyPinWithLock()`（含 failCount/lockedUntil 检查），禁止直接调 `verifyPin()`
 11. **partitionKey / storeId**：保存 cookie 时**必须**记录 `partitionKey`（Chrome 119+ CHIPS）与 `storeId`，切换/清除时原样透传，否则 Partitioned Cookie 丢失
-12. **消息层契约**：新增 action 必须同时在 `background.js` 的 `registerMessageHandler({...})` 注册；监听器异步响应必须 `return true` 保活；页面统一 `sendMessage(action, payload)`（自动超时 60s）
+12. **消息层契约**：新增 action 必须写入对应 `handlers/*.js` 的 action 表（tab/account/settings/backup/webdav），background.js 用 `{...TAB_ACTIONS, ...ACCOUNT_ACTIONS, ...}` 合并注册；监听器异步响应必须 `return true` 保活；页面统一 `sendMessage(action, payload)`（自动超时 60s）
 13. **WebDAV 必须在 SW 执行**：页面 fetch WebDAV 会被 CORS 拦截，只有 SW + host_permissions 可绕过；WebDAV 密码用主密钥加密存 `cookie_switcher_webdav.passEnc`，明文口令仅在 SW 内存中出现
 14. **数据版本迁移**：`DATA_VERSION=3`（storage.js），读取时惰性迁移，失败标记 `migrationPending` 不阻塞
 15. **权限最小化**：不用 `<all_urls>`，按需授权；WebDAV 服务器域名在 options 页 `permissions.request`（必须用户手势上下文）

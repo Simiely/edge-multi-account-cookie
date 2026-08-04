@@ -21,19 +21,6 @@ const fileInput = $('fileInput');
 const importMode = $('importMode');
 const backupStatus = $('backupStatus');
 
-// WebDAV
-const webdavUrl = $('webdavUrl');
-const webdavUser = $('webdavUser');
-const webdavPass = $('webdavPass');
-const webdavKeep = $('webdavKeep');
-const webdavSchedule = $('webdavSchedule');
-const btnWebdavTest = $('btnWebdavTest');
-const btnWebdavSave = $('btnWebdavSave');
-const btnWebdavPush = $('btnWebdavPush');
-const btnWebdavPull = $('btnWebdavPull');
-const btnWebdavRemove = $('btnWebdavRemove');
-const webdavStatus = $('webdavStatus');
-
 // ============================================================
 //  Init
 // ============================================================
@@ -50,15 +37,8 @@ async function loadSettings() {
   pinEnabled.checked = opts.pinSet;
   togglePinConfig(opts.pinSet);
 
-  // WebDAV（不回传密码，仅填充非敏感字段）
-  if (opts.webdav) {
-    webdavUrl.value = opts.webdav.url || '';
-    webdavUser.value = opts.webdav.user || '';
-    webdavKeep.value = opts.webdav.keep || 1;
-    webdavSchedule.value = opts.webdav.schedule || 'manual';
-    webdavPass.value = '';
-    webdavPass.placeholder = '已保存（留空保持不变）';
-  }
+  // WebDAV（逻辑在 ui/webdav-options.js）
+  fillWebdavSettings(opts.webdav);
 }
 
 function togglePinConfig(show) {
@@ -119,12 +99,8 @@ function bindEvents() {
   btnExport.addEventListener('click', handleExport);
   fileInput.addEventListener('change', handleImport);
 
-  // WebDAV
-  btnWebdavTest.addEventListener('click', handleWebdavTest);
-  btnWebdavSave.addEventListener('click', handleWebdavSave);
-  btnWebdavPush.addEventListener('click', handleWebdavPush);
-  btnWebdavPull.addEventListener('click', handleWebdavPull);
-  btnWebdavRemove.addEventListener('click', handleWebdavRemove);
+  // WebDAV（事件绑定在 ui/webdav-options.js）
+  bindWebdavEvents();
 }
 
 async function isPinSetLocal() {
@@ -233,148 +209,6 @@ async function handleImport(e) {
   }
 
   fileInput.value = '';
-}
-
-// ============================================================
-//  WebDAV
-// ============================================================
-
-/**
- * 确保主密钥在会话中可用（有锁且未解锁时引导用户输入密码）。
- * @returns {Promise<boolean>}
- */
-async function ensureMasterKeyUnlocked() {
-  const opts = await sendMessage('options.get');
-  if (!opts.mkWrapped) return true; // MK 明文落盘，直接可用
-  // 尝试直接读取（可能已在弹窗解锁过，会话缓存有效）
-  const chk = await sendMessage('masterkey.available');
-  if (chk.available) return true;
-  // 未解锁：要求输入密码锁密码
-  const pwd = prompt('🔐 主密钥已加密，输入密码锁密码以解锁（用于加密 WebDAV 凭据）：');
-  if (!pwd) return false;
-  const r = await sendMessage('pin.unlock', { pin: pwd });
-  if (!r.ok) {
-    showMsg(webdavStatus, r.locked ? `已锁定，请 ${r.retryAfterSeconds}s 后重试` : '密码错误', 'error');
-    return false;
-  }
-  return true;
-}
-
-/**
- * 按需申请 WebDAV 服务器域名权限（必须在用户手势上下文调用）。
- */
-async function ensureWebdavPermission(url) {
-  try {
-    const u = new URL(url);
-    const origin = `${u.protocol}//${u.hostname}/*`;
-    const has = await chrome.permissions.contains({ origins: [origin] });
-    if (!has) {
-      const granted = await chrome.permissions.request({ origins: [origin] });
-      if (!granted) {
-        showMsg(webdavStatus, `未授权访问 ${u.hostname}，WebDAV 功能不可用`, 'error');
-        return false;
-      }
-    }
-    return true;
-  } catch (e) {
-    // permissions API 不可用时继续（连接测试以实际结果为准）
-    return true;
-  }
-}
-
-function collectWebdavConfig() {
-  return {
-    url: webdavUrl.value.trim(),
-    user: webdavUser.value.trim(),
-    pass: webdavPass.value.trim(),
-    keep: parseInt(webdavKeep.value, 10) || 1,
-    schedule: webdavSchedule.value
-  };
-}
-
-async function handleWebdavTest() {
-  const cfg = collectWebdavConfig();
-  if (!cfg.url || !cfg.user || !cfg.pass) {
-    showMsg(webdavStatus, '请先填写服务器 URL、用户名、密码', 'error');
-    return;
-  }
-  if (!(await ensureWebdavPermission(cfg.url))) return;
-  btnWebdavTest.disabled = true;
-  btnWebdavTest.textContent = '测试中...';
-  try {
-    const r = await sendMessage('webdav.test', cfg);
-    showMsg(webdavStatus, `✅ 连接成功，服务器上检测到 ${r.count} 个项目`, 'success');
-  } catch (e) {
-    showMsg(webdavStatus, `连接失败：${e.message}`, 'error');
-  } finally {
-    btnWebdavTest.disabled = false;
-    btnWebdavTest.textContent = '🔌 连接测试';
-  }
-}
-
-async function handleWebdavSave() {
-  const cfg = collectWebdavConfig();
-  if (!cfg.url || !cfg.user) {
-    showMsg(webdavStatus, '请填写服务器 URL 与用户名', 'error');
-    return;
-  }
-  if (!(await ensureMasterKeyUnlocked())) return;
-  if (!(await ensureWebdavPermission(cfg.url))) return;
-  try {
-    await sendMessage('webdav.save', cfg);
-    webdavPass.value = '';
-    webdavPass.placeholder = '已保存（留空保持不变）';
-    showMsg(webdavStatus, '✅ WebDAV 配置已保存（密码已加密存储）', 'success');
-  } catch (e) {
-    showMsg(webdavStatus, `保存失败：${e.message}`, 'error');
-  }
-}
-
-async function handleWebdavPush() {
-  try {
-    if (!(await ensureMasterKeyUnlocked())) return;
-    btnWebdavPush.disabled = true;
-    btnWebdavPush.textContent = '上传中...';
-    const r = await sendMessage('webdav.push');
-    showMsg(webdavStatus, `✅ 备份已上传：${r.filename}`, 'success');
-  } catch (e) {
-    showMsg(webdavStatus, `上传失败：${e.message}`, 'error');
-  } finally {
-    btnWebdavPush.disabled = false;
-    btnWebdavPush.textContent = '📤 立即备份';
-  }
-}
-
-async function handleWebdavPull() {
-  try {
-    if (!(await ensureMasterKeyUnlocked())) return;
-    const mode = importMode.value;
-    btnWebdavPull.disabled = true;
-    btnWebdavPull.textContent = '下载中...';
-    const r = await sendMessage('webdav.pull', { mode });
-    showMsg(webdavStatus, `✅ 已从 ${r.filename} 恢复：新增 ${r.imported} 个账号${r.skipped ? `，跳过 ${r.skipped}` : ''}`, 'success');
-  } catch (e) {
-    showMsg(webdavStatus, `恢复失败：${e.message}`, 'error');
-  } finally {
-    btnWebdavPull.disabled = false;
-    btnWebdavPull.textContent = '📥 下载恢复';
-  }
-}
-
-async function handleWebdavRemove() {
-  if (!confirm('确定清除 WebDAV 配置吗？远端备份文件不会被删除。')) return;
-  try {
-    await sendMessage('webdav.remove');
-    webdavUrl.value = '';
-    webdavUser.value = '';
-    webdavPass.value = '';
-    webdavKeep.value = 1;
-    webdavSchedule.value = 'manual';
-    webdavPass.placeholder = 'WebDAV 密码';
-    showMsg(webdavStatus, '✅ WebDAV 配置已清除', 'success');
-  } catch (e) {
-    showMsg(webdavStatus, `清除失败：${e.message}`, 'error');
-  }
 }
 
 // ============================================================
