@@ -8,14 +8,9 @@ let currentTabId = -1;
 let unlocked = false;
 
 const $ = (id) => document.getElementById(id);
-const domainText = $('domainText');
-const identityAvatar = $('identityAvatar');
-const identitySub = $('identitySub');
-const permStatus = $('permStatus');
 const inputName = $('inputName');
 const inputGroup = $('inputGroup');
 const btnSave = $('btnSave');
-const savePanel = $('savePanel');
 const btnRefresh = $('btnRefresh');
 const btnOptions = $('btnOptions');
 const btnLoginNew = $('btnLoginNew');
@@ -23,7 +18,6 @@ const statusBar = $('statusBar');
 const accountList = $('accountList');
 const emptyState = $('emptyState');
 const sectionTitle = $('sectionTitle');
-const grantBanner = $('grantBanner');
 const lockOverlay = $('lockOverlay');
 const lockInput = $('lockInput');
 const btnUnlock = $('btnUnlock');
@@ -87,20 +81,14 @@ async function boot() {
 async function initCurrentTab() {
   const info = await sendMessage('tab.getCurrent');
   if (!info.supported) {
-    domainText.textContent = '不支持该页面';
-    identitySub.textContent = '';
-    identityAvatar.textContent = '?';
-    identityAvatar.style.background = '#5F5E5A';
-    identityAvatar.style.color = '#F1EFE8';
-    permStatus.className = 'header-status gray';
+    renderIdentity({ granted: null, sub: '' });
     btnSave.disabled = true;
     btnLoginNew.disabled = true;
     return;
   }
   currentDomain = info.domain;
   currentTabId = info.tabId;
-  domainText.textContent = currentDomain;
-  identitySub.textContent = 'Cookie Switcher';
+  renderIdentity({ domain: currentDomain, sub: 'Cookie Switcher', avatarChar: currentDomain.charAt(0) });
 
   if (!currentDomain) return;
 
@@ -112,26 +100,16 @@ async function verifyCookieAccess() {
     const url = `*://${currentDomain}/*`;
     const hasPerm = await chrome.permissions.contains({ origins: [url] });
     if (hasPerm) {
-      permStatus.className = 'header-status'; // 绿
-      identityAvatar.style.background = '#FF9292';
-      identityAvatar.style.color = '#3D1F1F';
+      renderIdentity({ domain: currentDomain, sub: 'Cookie Switcher', avatarChar: currentDomain.charAt(0), granted: true });
     } else {
-      permStatus.className = 'header-status gray';
-      identityAvatar.style.background = '#5F5E5A';
-      identityAvatar.style.color = '#F1EFE8';
-      identitySub.textContent = '未授权 · 点击下方授权';
-      grantBanner.style.display = 'block';
-      grantBanner.innerHTML = `
-        <div>需要授权才能操作 <strong>${currentDomain}</strong> 的 Cookie</div>
-        <button class="grant-btn" id="btnGrantPerm">授权访问此网站</button>
-      `;
-      document.getElementById('btnGrantPerm').addEventListener('click', requestHostPermission);
+      renderIdentity({ domain: currentDomain, sub: '未授权 · 点击下方授权', avatarChar: currentDomain.charAt(0), granted: false });
+      renderGrantBanner(currentDomain, requestHostPermission);
       btnSave.disabled = true;
       btnLoginNew.disabled = true;
     }
   } catch (e) {
     // permissions API 不可用，静默继续
-    permStatus.className = 'header-status';
+    renderIdentity({ domain: currentDomain, sub: 'Cookie Switcher', avatarChar: currentDomain.charAt(0), granted: true });
   }
 }
 
@@ -143,7 +121,8 @@ async function requestHostPermission() {
     const granted = await chrome.permissions.request({ origins: [url] });
     if (granted) {
       showStatus(statusBar, `✓ 已获得 ${currentDomain} 的访问权限`, 'success');
-      grantBanner.style.display = 'none';
+      hideGrantBanner();
+      renderIdentity({ domain: currentDomain, sub: 'Cookie Switcher', avatarChar: currentDomain.charAt(0), granted: true });
       btnSave.disabled = false;
       btnLoginNew.disabled = false;
     } else {
@@ -230,12 +209,6 @@ function bindEvents() {
   document.getElementById('btnWebdavPull').addEventListener('click', handleWebdavPull);
 }
 
-function toggleSavePanel() {
-  const show = savePanel.style.display === 'none';
-  savePanel.style.display = show ? 'block' : 'none';
-  if (show) inputName.focus();
-}
-
 // ============================================================
 //  WebDAV 快捷备份（弹窗直传/下载，复用设置页 action）
 // ============================================================
@@ -312,9 +285,8 @@ async function handleSaveAccount() {
     return;
   }
 
-  // btnSave 是图标 div，保存中仅置灰
-  btnSave.style.opacity = '0.5';
-  btnSave.style.pointerEvents = 'none';
+  // 保存忙碌态（图标 div 置灰）
+  setSaveBusy(true);
 
   try {
     const group = inputGroup.value.trim();
@@ -327,13 +299,12 @@ async function handleSaveAccount() {
     }
     inputName.value = '';
     inputGroup.value = '';
-    savePanel.style.display = 'none'; // 保存成功收起面板
+    setSavePanel(false); // 保存成功收起面板
     await renderAccountList();
   } catch (e) {
     showStatus(statusBar, `保存失败：${e.message}`, 'error');
   } finally {
-    btnSave.style.opacity = '1';
-    btnSave.style.pointerEvents = 'auto';
+    setSaveBusy(false);
   }
 }
 
