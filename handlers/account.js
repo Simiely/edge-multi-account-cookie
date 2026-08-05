@@ -12,15 +12,14 @@ const ACCOUNT_ACTIONS = {
 
   'account.save': async (payload) => {
     const { domain, name, group, tabId } = payload;
-    const mk = await getMasterKey();
-    if (!mk) throw new Error('主密钥不可用，请先解锁密码锁');
+    // 明文存储 cookie value（与浏览器自身 Cookies 数据库一致，避免 AES 加密膨胀超 4096 上限导致切换失效）
+    // 安全性：备份/导出环节仍整包加密；本方案兼容旧 enc: 数据（applyCookies 解密逻辑保留）
     const cookies = await getCookies(domain);
-    const encrypted = [];
+    const plain = [];
     for (const c of cookies) {
-      const encValue = await encryptWithKey(String(c.value || ''), mk);
-      encrypted.push({
+      plain.push({
         name: c.name,
-        value: 'enc:' + encValue,
+        value: String(c.value || ''),
         domain: c.domain,
         path: c.path || '/',
         secure: !!c.secure,
@@ -36,8 +35,8 @@ const ACCOUNT_ACTIONS = {
     if (tabId) {
       try { lsData = await getTabLocalStorage(tabId); } catch (e) { /* ignore */ }
     }
-    await saveAccount(domain, name, encrypted, lsData, group);
-    return { saved: encrypted.length, lsKeys: Object.keys(lsData).length };
+    await saveAccount(domain, name, plain, lsData, group);
+    return { saved: plain.length, lsKeys: Object.keys(lsData).length };
   },
 
   'account.delete': async (payload) => {
