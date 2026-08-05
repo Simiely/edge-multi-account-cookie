@@ -23,18 +23,6 @@ function avatarColors(group) {
 }
 
 /**
- * 账号是否全部 Cookie 过期。
- */
-function isAccountExpired(account) {
-  const cookies = account.cookies || [];
-  if (cookies.length === 0) return false;
-  const now = Date.now() / 1000;
-  // 全部 Cookie 均过期 → 视为过期账号；存在会话 cookie（无 expirationDate）则不标记
-  const allExpired = cookies.every((c) => c.expirationDate && c.expirationDate <= now);
-  return allExpired && cookies.some((c) => c.expirationDate);
-}
-
-/**
  * 分组标题行（可折叠）。
  * @param {string} group
  * @param {Set<string>} collapsedGroups - 折叠状态集（由调用方持有，避免跨文件共享状态）
@@ -127,14 +115,6 @@ function createAccountCard(name, account, group) {
   actions.appendChild(deleteBtn);
 
   card.appendChild(actions);
-
-  // 过期徽章（独立于 info，放最右侧）
-  if (isAccountExpired(account)) {
-    const badge = document.createElement('span');
-    badge.className = 'expired-badge';
-    badge.textContent = '已过期';
-    card.appendChild(badge);
-  }
 
   card.addEventListener('click', () => {
     handleSwitchAccount(name, account);

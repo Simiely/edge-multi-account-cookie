@@ -136,7 +136,7 @@ async function requestHostPermission() {
 // ============================================================
 //  账号列表
 // ============================================================
-// 纯渲染函数（isAccountExpired/createGroupHeader/createAccountCard/showStatus）
+// 纯渲染函数（createGroupHeader/createAccountCard/showStatus）
 // 已拆至 ui/popup-render.js —— 本文件只保留依赖共享状态的编排逻辑。
 
 async function renderAccountList() {
@@ -314,17 +314,15 @@ async function handleSwitchAccount(name, account) {
   try {
     const r = await sendMessage('account.switch', { domain: currentDomain, name, tabId: currentTabId });
 
-    let msg = `✓ 已切换到「${name}」`;
-    if (r.skipped > 0) msg += `（${r.skipped} 个过期 Cookie 已跳过）`;
-    if (r.failed.length > 0) msg += `（${r.failed.length} 个写入失败）`;
-    if (r.rolledBack) msg += '，已回滚';
-    showStatus(statusBar, msg, r.failed.length > 0 ? 'warning' : 'success');
-
-    if (r.failed.length === 0 || r.rolledBack) {
-      await sendMessage('tab.reload', { tabId: currentTabId });
+    // 简化提示：成功/失败两态，不展示过期/回滚等细节（用户要求）
+    if (r.failed.length > 0 || r.snapshotFailed) {
+      showStatus(statusBar, `「${name}」使用失败`, 'error');
+      return;
     }
+    showStatus(statusBar, `✓ 已切换到「${name}」`, 'success');
+    await sendMessage('tab.reload', { tabId: currentTabId });
   } catch (e) {
-    showStatus(statusBar, `切换失败：${e.message}`, 'error');
+    showStatus(statusBar, `「${name}」使用失败`, 'error');
   }
 }
 
