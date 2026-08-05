@@ -148,10 +148,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
   if (info.menuItemId === MENU_CLEAR) {
     try {
-      await clearDomainCookies(domain);
-      await clearTabLocalStorage(tab.id);
+      const result = await clearDomainCookies(domain);
+      // 数据一致性保护：cookie 清除存在失败时不刷 localStorage
+      if (result.failedCookies.length === 0) {
+        await clearTabLocalStorage(tab.id);
+      }
       await chrome.tabs.reload(tab.id);
-      log('log', `已清除 ${domain} 的 Cookie`);
+      log('log', `已清除 ${domain} 的 Cookie${result.failedCookies.length ? `（${result.failedCookies.length} 个失败）` : ''}`);
     } catch (e) {
       log('error', `清除失败：${e.message}`);
     }

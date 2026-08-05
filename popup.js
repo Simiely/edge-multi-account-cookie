@@ -371,7 +371,7 @@ async function handleLoginNew() {
     if (r.failedCookies.length > 0) {
       const failedNames = r.failedCookies.map((f) => f.name).join(', ');
       showStatus(statusBar,
-        `⚠️ 成功移除 ${r.removed}/${r.total} 个 Cookie，${r.failedCookies.length} 个移除失败：${failedNames}`,
+        `⚠️ 成功移除 ${r.removed}/${r.total} 个 Cookie，${r.failedCookies.length} 个移除失败：${failedNames}（页面数据未清除）`,
         'error');
     } else if (r.removed > 0) {
       showStatus(statusBar, `✓ 已清除 ${r.removed} 个 Cookie，页面正在刷新`);

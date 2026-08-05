@@ -93,7 +93,10 @@ const ACCOUNT_ACTIONS = {
     const { domain, tabId } = payload;
     const before = await getCookies(domain);
     const result = await clearDomainCookies(domain);
-    await clearTabLocalStorage(tabId);
+    // 数据一致性保护：cookie 清除存在失败时不刷 localStorage，避免"半退出"状态
+    if (result.failedCookies.length === 0) {
+      await clearTabLocalStorage(tabId);
+    }
     return { before: before.length, ...result };
   }
 };
