@@ -45,6 +45,11 @@ async function loadSettings() {
 
   // 状态栏
   await loadStatBar(opts);
+
+  // 一次性迁移：旧 enc: 加密数据 → 明文存储（幂等；MK 不可用则静默等下次）
+  try {
+    await sendMessage('data.migratePlain');
+  } catch (e) { /* 忽略：MK 不可用或已迁移 */ }
 }
 
 /**

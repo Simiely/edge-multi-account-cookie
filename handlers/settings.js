@@ -47,5 +47,10 @@ const SETTINGS_ACTIONS = {
   'masterkey.available': async () => {
     const mk = await getMasterKey();
     return { available: !!mk };
+  },
+
+  // ---- 数据迁移（旧 enc: 加密 → 明文，幂等）----
+  'data.migratePlain': async () => {
+    return migratePlainValues();
   }
 };
