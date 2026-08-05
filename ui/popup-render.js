@@ -9,6 +9,20 @@
  */
 
 /**
+ * 分组 → 头像底色（降饱和，与主色 #FF9292 和谐）。空分组用主色。
+ */
+const GROUP_COLORS = {
+  '': ['#FF9292', '#3D1F1F'],           // 默认（主色）
+  '工作': ['#D47373', '#2B1212'],        // 深珊瑚
+  '个人': ['#5D9E8F', '#E1F5EE'],        // 灰绿
+  '测试': ['#7F77DD', '#EEEDFE'],        // 紫
+};
+function avatarColors(group) {
+  const g = String(group || '').trim();
+  return GROUP_COLORS[g] || ['#7F77DD', '#EEEDFE']; // 未知分组 → 紫
+}
+
+/**
  * 账号是否全部 Cookie 过期。
  */
 function isAccountExpired(account) {
@@ -54,8 +68,11 @@ function createAccountCard(name, account, group) {
   const card = document.createElement('div');
   card.className = 'account-card';
 
+  const [bg, fg] = avatarColors(group);
   const avatar = document.createElement('div');
   avatar.className = 'avatar';
+  avatar.style.background = bg;
+  avatar.style.color = fg;
   avatar.textContent = name.charAt(0).toUpperCase();
   card.appendChild(avatar);
 
@@ -73,14 +90,6 @@ function createAccountCard(name, account, group) {
   meta.textContent = `${cookieCount} 个 Cookie`;
   if (group) meta.textContent += ` · ${group}`;
   info.appendChild(meta);
-
-  // 过期提示
-  if (isAccountExpired(account)) {
-    const expired = document.createElement('div');
-    expired.className = 'expired-tag';
-    expired.textContent = '⚠ 该账号 Cookie 已全部过期';
-    info.appendChild(expired);
-  }
 
   card.appendChild(info);
 
@@ -118,6 +127,14 @@ function createAccountCard(name, account, group) {
   actions.appendChild(deleteBtn);
 
   card.appendChild(actions);
+
+  // 过期徽章（独立于 info，放最右侧）
+  if (isAccountExpired(account)) {
+    const badge = document.createElement('span');
+    badge.className = 'expired-badge';
+    badge.textContent = '已过期';
+    card.appendChild(badge);
+  }
 
   card.addEventListener('click', () => {
     handleSwitchAccount(name, account);

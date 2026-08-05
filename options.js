@@ -39,6 +39,58 @@ async function loadSettings() {
 
   // WebDAV（逻辑在 ui/webdav-options.js）
   fillWebdavSettings(opts.webdav);
+
+  // 导入模式分段控件初始态（select 默认 merge）
+  setImportMode(importMode.value || 'merge');
+
+  // 状态栏
+  await loadStatBar(opts);
+}
+
+/**
+ * 顶部状态栏：账号总数 / 密码锁 / 上次备份 / WebDAV。
+ */
+async function loadStatBar(opts) {
+  // 账号总数
+  try {
+    const data = await loadRawDataStat();
+    const count = Object.values(data.accounts || {}).reduce((n, d) => n + Object.keys(d).length, 0);
+    document.getElementById('statAccounts').textContent = count;
+  } catch (e) {
+    document.getElementById('statAccounts').textContent = '-';
+  }
+
+  // 密码锁
+  const pinEl = document.getElementById('statPin');
+  pinEl.textContent = opts.pinSet ? '已开启' : '未开启';
+  pinEl.className = 'stat-value ' + (opts.pinSet ? 'pill' : 'gray');
+
+  // 上次备份
+  const backupEl = document.getElementById('statBackup');
+  if (opts.webdav && opts.webdav.lastBackupAt) {
+    const d = new Date(opts.webdav.lastBackupAt);
+    backupEl.textContent = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  } else {
+    backupEl.textContent = '从未';
+  }
+
+  // WebDAV
+  const wdEl = document.getElementById('statWebdav');
+  if (opts.webdav && opts.webdav.url) {
+    wdEl.textContent = '已配置';
+    wdEl.className = 'stat-value green';
+  } else {
+    wdEl.textContent = '未配置';
+    wdEl.className = 'stat-value gray';
+  }
+}
+
+/**
+ * 读取原始数据（仅统计账号数，不触达加密）。
+ */
+async function loadRawDataStat() {
+  const result = await chrome.storage.local.get('cookie_switcher_data');
+  return result['cookie_switcher_data'] || { accounts: {} };
 }
 
 function togglePinConfig(show) {
@@ -99,8 +151,26 @@ function bindEvents() {
   btnExport.addEventListener('click', handleExport);
   fileInput.addEventListener('change', handleImport);
 
+  // 导入模式分段控件 ↔ select 同步
+  document.getElementById('modeMerge').addEventListener('click', () => setImportMode('merge'));
+  document.getElementById('modeReplace').addEventListener('click', () => setImportMode('replace'));
+
+  // WebDAV 高级选项折叠
+  const advToggle = document.getElementById('webdavAdvancedToggle');
+  const advBody = document.getElementById('webdavAdvancedBody');
+  advToggle.addEventListener('click', () => {
+    const open = advBody.classList.toggle('open');
+    advToggle.textContent = open ? '▾ 高级选项（保留份数 · 自动备份计划）' : '▸ 高级选项（保留份数 · 自动备份计划）';
+  });
+
   // WebDAV（事件绑定在 ui/webdav-options.js）
   bindWebdavEvents();
+}
+
+function setImportMode(mode) {
+  importMode.value = mode;
+  document.getElementById('modeMerge').classList.toggle('active', mode === 'merge');
+  document.getElementById('modeReplace').classList.toggle('active', mode === 'replace');
 }
 
 async function isPinSetLocal() {

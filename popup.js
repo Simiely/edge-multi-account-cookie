@@ -9,9 +9,13 @@ let unlocked = false;
 
 const $ = (id) => document.getElementById(id);
 const domainText = $('domainText');
+const identityAvatar = $('identityAvatar');
+const identitySub = $('identitySub');
+const permStatus = $('permStatus');
 const inputName = $('inputName');
 const inputGroup = $('inputGroup');
 const btnSave = $('btnSave');
+const savePanel = $('savePanel');
 const btnRefresh = $('btnRefresh');
 const btnOptions = $('btnOptions');
 const btnLoginNew = $('btnLoginNew');
@@ -84,6 +88,11 @@ async function initCurrentTab() {
   const info = await sendMessage('tab.getCurrent');
   if (!info.supported) {
     domainText.textContent = '不支持该页面';
+    identitySub.textContent = '';
+    identityAvatar.textContent = '?';
+    identityAvatar.style.background = '#5F5E5A';
+    identityAvatar.style.color = '#F1EFE8';
+    permStatus.className = 'header-status gray';
     btnSave.disabled = true;
     btnLoginNew.disabled = true;
     return;
@@ -91,6 +100,7 @@ async function initCurrentTab() {
   currentDomain = info.domain;
   currentTabId = info.tabId;
   domainText.textContent = currentDomain;
+  identitySub.textContent = 'Cookie Switcher';
 
   if (!currentDomain) return;
 
@@ -101,17 +111,19 @@ async function verifyCookieAccess() {
   try {
     const url = `*://${currentDomain}/*`;
     const hasPerm = await chrome.permissions.contains({ origins: [url] });
-    if (!hasPerm) {
+    if (hasPerm) {
+      permStatus.className = 'header-status'; // 绿
+      identityAvatar.style.background = '#FF9292';
+      identityAvatar.style.color = '#3D1F1F';
+    } else {
+      permStatus.className = 'header-status gray';
+      identityAvatar.style.background = '#5F5E5A';
+      identityAvatar.style.color = '#F1EFE8';
+      identitySub.textContent = '未授权 · 点击下方授权';
       grantBanner.style.display = 'block';
       grantBanner.innerHTML = `
-        <div style="padding:10px;background:rgba(255,146,146,0.12);border:1px solid rgba(255,146,146,0.3);border-radius:8px;margin-bottom:10px;">
-          <div style="font-size:13px;margin-bottom:8px;">
-            ⚠️ 需要授权才能操作 <strong>${currentDomain}</strong> 的 Cookie
-          </div>
-          <button id="btnGrantPerm" style="padding:6px 16px;border:none;border-radius:6px;background:#ff9292;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">
-            ✅ 授权访问此网站
-          </button>
-        </div>
+        <div>需要授权才能操作 <strong>${currentDomain}</strong> 的 Cookie</div>
+        <button class="grant-btn" id="btnGrantPerm">授权访问此网站</button>
       `;
       document.getElementById('btnGrantPerm').addEventListener('click', requestHostPermission);
       btnSave.disabled = true;
@@ -119,6 +131,7 @@ async function verifyCookieAccess() {
     }
   } catch (e) {
     // permissions API 不可用，静默继续
+    permStatus.className = 'header-status';
   }
 }
 
@@ -192,8 +205,13 @@ async function renderAccountList() {
 // ============================================================
 
 function bindEvents() {
-  btnSave.addEventListener('click', handleSaveAccount);
+  // 保存：点击图标展开输入面板（B v2 交互：默认收起，按需展开）
+  btnSave.addEventListener('click', toggleSavePanel);
+  btnSave.addEventListener('keydown', (e) => { if (e.key === 'Enter') toggleSavePanel(); });
   inputName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleSaveAccount();
+  });
+  inputGroup.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleSaveAccount();
   });
   btnRefresh.addEventListener('click', async () => {
@@ -210,6 +228,12 @@ function bindEvents() {
   });
   document.getElementById('btnWebdavPush').addEventListener('click', handleWebdavPush);
   document.getElementById('btnWebdavPull').addEventListener('click', handleWebdavPull);
+}
+
+function toggleSavePanel() {
+  const show = savePanel.style.display === 'none';
+  savePanel.style.display = show ? 'block' : 'none';
+  if (show) inputName.focus();
 }
 
 // ============================================================
@@ -288,26 +312,28 @@ async function handleSaveAccount() {
     return;
   }
 
-  btnSave.disabled = true;
-  btnSave.textContent = '⏳ 保存中...';
+  // btnSave 是图标 div，保存中仅置灰
+  btnSave.style.opacity = '0.5';
+  btnSave.style.pointerEvents = 'none';
 
   try {
     const group = inputGroup.value.trim();
     const r = await sendMessage('account.save', { domain: currentDomain, name, group, tabId: currentTabId });
 
     if (r.saved === 0) {
-      showStatus(statusBar, `⚠️ 已保存「${name}」但没有读取到任何 Cookie。可能缺少主机权限，请点击上方的「授权访问此网站」按钮`, 'error');
+      showStatus(statusBar, `⚠️ 已保存「${name}」但没有读取到任何 Cookie。可能缺少主机权限，请点击「授权访问此网站」`, 'error');
     } else {
       showStatus(statusBar, `✓ 已保存「${name}」(${r.saved} 个 Cookie${r.lsKeys ? ` + ${r.lsKeys} 项页面数据` : ''})`);
     }
     inputName.value = '';
     inputGroup.value = '';
+    savePanel.style.display = 'none'; // 保存成功收起面板
     await renderAccountList();
   } catch (e) {
     showStatus(statusBar, `保存失败：${e.message}`, 'error');
   } finally {
-    btnSave.disabled = false;
-    btnSave.textContent = '💾 保存当前账号';
+    btnSave.style.opacity = '1';
+    btnSave.style.pointerEvents = 'auto';
   }
 }
 
