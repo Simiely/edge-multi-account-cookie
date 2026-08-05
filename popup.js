@@ -79,18 +79,21 @@ async function boot() {
 }
 
 async function initCurrentTab() {
-  const info = await sendMessage('tab.getCurrent');
-  if (!info.supported) {
+  // popup 直调 tab 查询（v2.2 方式；不依赖 SW）
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs[0];
+  if (!tab || !tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
     renderIdentity({ granted: null, sub: '' });
     btnSave.disabled = true;
     btnLoginNew.disabled = true;
     return;
   }
-  currentDomain = info.domain;
-  currentTabId = info.tabId;
-  renderIdentity({ domain: currentDomain, sub: 'Cookie Switcher', avatarChar: currentDomain.charAt(0) });
+  const domain = extractDomain(tab.url);
+  currentDomain = domain;
+  currentTabId = tab.id;
+  renderIdentity({ domain, sub: 'Cookie Switcher', avatarChar: domain.charAt(0) });
 
-  if (!currentDomain) return;
+  if (!domain) return;
 
   await verifyCookieAccess();
 }
@@ -147,7 +150,7 @@ async function renderAccountList() {
     return;
   }
 
-  const accounts = await sendMessage('account.list', { domain: currentDomain });
+  const accounts = await getDomainAccounts(currentDomain);
   const entries = Object.entries(accounts);
 
   if (entries.length === 0) {
@@ -290,12 +293,19 @@ async function handleSaveAccount() {
 
   try {
     const group = inputGroup.value.trim();
-    const r = await sendMessage('account.save', { domain: currentDomain, name, group, tabId: currentTabId });
+    // popup 直调（修复：SW 上下文 cookies.getAll 读不到 cookie）：
+    // 在 popup 上下文读 cookie（activeTab + 持久授权均可用）+ 抓 localStorage + 落库
+    const cookies = await getCookies(currentDomain);
+    let lsData = {};
+    if (currentTabId > 0) {
+      try { lsData = await getTabLocalStorage(currentTabId); } catch (e) { /* ignore */ }
+    }
+    await saveAccount(currentDomain, name, cookies, lsData, group);
 
-    if (r.saved === 0) {
+    if (cookies.length === 0) {
       showStatus(statusBar, `⚠️ 已保存「${name}」但没有读取到任何 Cookie。可能缺少主机权限，请点击「授权访问此网站」`, 'error');
     } else {
-      showStatus(statusBar, `✓ 已保存「${name}」(${r.saved} 个 Cookie${r.lsKeys ? ` + ${r.lsKeys} 项页面数据` : ''})`);
+      showStatus(statusBar, `✓ 已保存「${name}」(${cookies.length} 个 Cookie${Object.keys(lsData).length ? ` + ${Object.keys(lsData).length} 项页面数据` : ''})`);
     }
     inputName.value = '';
     inputGroup.value = '';
@@ -312,7 +322,11 @@ async function handleSwitchAccount(name, account) {
   showStatus(statusBar, `⏳ 正在切换到「${name}」...`, 'success', 0);
 
   try {
-    const r = await sendMessage('account.switch', { domain: currentDomain, name, tabId: currentTabId });
+    // popup 直调（修复 SW 读不到 cookie）：清旧 + 写新 + localStorage，都在 popup 上下文
+    const r = await applyCookies(currentDomain, account.cookies || []);
+    if (Object.keys(account.localStorage || {}).length > 0 && currentTabId > 0) {
+      await setTabLocalStorage(currentTabId, account.localStorage);
+    }
 
     // 简化提示：成功/失败两态，不展示过期/回滚等细节（用户要求）
     if (r.failed.length > 0 || r.snapshotFailed) {
@@ -320,7 +334,7 @@ async function handleSwitchAccount(name, account) {
       return;
     }
     showStatus(statusBar, `✓ 已切换到「${name}」`, 'success');
-    await sendMessage('tab.reload', { tabId: currentTabId });
+    if (currentTabId > 0) await chrome.tabs.reload(currentTabId);
   } catch (e) {
     showStatus(statusBar, `「${name}」使用失败`, 'error');
   }
@@ -329,7 +343,7 @@ async function handleSwitchAccount(name, account) {
 async function handleDeleteAccount(name) {
   if (!confirm(`确定要删除「${name}」的账号数据吗？`)) return;
   try {
-    await sendMessage('account.delete', { domain: currentDomain, name });
+    await deleteAccount(currentDomain, name);
     showStatus(statusBar, `✓ 已删除「${name}」`);
     await renderAccountList();
   } catch (e) {
@@ -338,22 +352,28 @@ async function handleDeleteAccount(name) {
 }
 
 async function handleEditAccount(name) {
-  const accounts = await sendMessage('account.list', { domain: currentDomain });
+  const accounts = await getDomainAccounts(currentDomain);
   const account = accounts[name];
   if (!account) return;
 
   const newName = prompt('重命名账号（留空则保持不变）：', name);
+  let finalName = name;
   if (newName !== null && newName.trim() && newName.trim() !== name) {
-    const renamed = await sendMessage('account.rename', { domain: currentDomain, oldName: name, newName: newName.trim() })
-      .catch(() => false);
+    const renamed = await renameAccount(currentDomain, name, newName.trim()).catch(() => false);
     if (renamed) {
+      finalName = newName.trim();
       await renderAccountList();
     }
   }
 
   const newGroup = prompt('设置分组（可输入新分组，留空清除）：', account.group || '');
   if (newGroup !== null) {
-    await sendMessage('account.updateGroup', { domain: currentDomain, name: newName && newName.trim() && newName.trim() !== name ? newName.trim() : name, group: newGroup.trim() });
+    const data = await loadRawData();
+    if (data.accounts[currentDomain] && data.accounts[currentDomain][finalName]) {
+      data.accounts[currentDomain][finalName].group = newGroup.trim();
+      data.accounts[currentDomain][finalName].updatedAt = Date.now();
+      await saveRawData(data);
+    }
     await renderAccountList();
   }
 }
@@ -364,7 +384,11 @@ async function handleLoginNew() {
   showStatus(statusBar, '⏳ 正在清除 Cookie...', 'success', 0);
 
   try {
-    const r = await sendMessage('site.clear', { domain: currentDomain, tabId: currentTabId });
+    // popup 直调（修复 SW 读不到 cookie）：清 cookie + localStorage 都在 popup 上下文
+    const r = await clearDomainCookies(currentDomain);
+    if (r.failedCookies.length === 0 && currentTabId > 0) {
+      await clearTabLocalStorage(currentTabId);
+    }
 
     if (r.failedCookies.length > 0) {
       const failedNames = r.failedCookies.map((f) => f.name).join(', ');
@@ -376,7 +400,7 @@ async function handleLoginNew() {
     } else {
       showStatus(statusBar, '⚠️ 没有 Cookie 被清除，可能缺少权限', 'error');
     }
-    await sendMessage('tab.reload', { tabId: currentTabId });
+    if (currentTabId > 0) await chrome.tabs.reload(currentTabId);
   } catch (e) {
     showStatus(statusBar, `清除失败：${e.message}`, 'error');
   }
