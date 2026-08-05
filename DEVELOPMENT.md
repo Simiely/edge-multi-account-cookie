@@ -5,7 +5,7 @@
 
 ## 项目概览
 
-Edge/Chrome MV3 扩展（v2.5.0），保存和切换多网站账号 Cookie。AES-256-GCM 加密存储（主密钥方案）+ 密码锁（PBKDF2 + 防爆破）+ WebDAV 远程备份，纯原生 JS 零依赖。设计原则：权限最小化、数据本地加密、消息层收口、杜绝供应链风险。
+Edge/Chrome MV3 扩展（v2.6.0），保存和切换多网站账号 Cookie。Cookie value 明文存储（与浏览器自身 Cookies 数据库一致）+ 密码锁（PBKDF2 + 防爆破）+ WebDAV 远程备份（整包加密），纯原生 JS 零依赖。设计原则：权限最小化、popup 直调 cookie 操作、消息层收口（WebDAV 前置）、杜绝供应链风险。
 
 ## 架构说明
 
@@ -139,6 +139,18 @@ edge-multi-account-cookie/
 ### 24. 数据一致性保护（P1 硬伤修复）
 
 **TL;DR**：① `applyCookies` 快照失败时静默丢失回滚能力 → 新增 `snapshotFailed` 上报；② `site.clear` cookie 清除有失败仍清 localStorage → **失败时不刷 localStorage**（防半退出），popup/右键菜单同步提示。
+
+### 25. Edge SW 上下文 cookies API 读取失效（v2.6.0 P0 修复，花瓣登录根因）
+
+**TL;DR**：**Edge 的 Service Worker 中 `chrome.cookies.getAll` 读不到 cookie**（CDP 实测：同一 host 授权下 SW 返回 0 个、popup 页面返回 12 个）。v2.5 把保存/切换/清除迁到 SW（为 WebDAV CORS），导致保存读到 0 个 cookie → 切换无效。**修复：cookie 操作全部改回 popup 直调**（activeTab + 持久授权均可用，同 v2.2）；SW 只保留 WebDAV/定时/右键。**教训：cookie 相关 API 不要放 SW，页面上下文才可靠。**
+
+### 26. Cookie 明文存储决策（v2.6.0）
+
+**TL;DR**：AES-GCM 加密使 cookie value 膨胀 1.35 倍，原始值 >3072B 加密后超浏览器 4096 上限 → `chrome.cookies.set` 失败 → 切换丢失登录态。**改为明文存储**（与浏览器自身 Cookies 数据库明文一致，安全级别相当）；备份/导出仍整包加密。旧 enc: 数据兼容（applyCookies 保留解密）+ `data.migratePlain` 自动迁移为明文（幂等）。**教训：cookie value 有 4KB 硬上限，任何膨胀型处理（加密/编码）都会踩雷。**
+
+### 27. getCookies 父域链查询（v2.6.0）
+
+**TL;DR**：`chrome.cookies.getAll({domain})` 只精确匹配该域，**不返回子域 cookie**（如 ums.huaban.com 的 locale）。`getCookies` 同时查 domain / .domain / 父域链合并去重，覆盖子域，修复"清除不干净"（清除后花瓣 JS 会自动补种游客统计 cookie，属正常现象，登录核心是 auth_key 不重种）。
 
 ## 构建 & 发布
 
