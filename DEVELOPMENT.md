@@ -12,21 +12,33 @@ Edge/Chrome MV3 扩展（v2.5.0），保存和切换多网站账号 Cookie。AES
 ```
 edge-multi-account-cookie/
 ├── manifest.json        # MV3 配置（含 key 固定扩展 ID、alarms 权限）
-├── background.js        # Service Worker：消息路由 + 右键菜单 + 定时备份
-├── lib/                 # 核心层（无 DOM 依赖）
+├── background.js        # Service Worker：importScripts 装配 + 消息路由 + 右键菜单 + 定时备份
+├── lib/                 # 核心层（无 DOM 依赖，纯逻辑）
 │   ├── crypto.js        # 加密：AES-GCM + PBKDF2(60w) + 主密钥 + 分块 base64
 │   ├── storage.js       # 数据层：账号 CRUD + 版本迁移 + 主密钥落盘
 │   ├── cookies.js       # Cookie/页面数据 + applyCookies（partitionKey/回滚）
-│   ├── security.js      # 密码锁 + 防暴力破解
+│   ├── security.js      # 密码锁 + 防暴力破解 + PIN 会话缓存
 │   ├── backup.js        # 本地导出/导入（merge/replace）
-│   ├── webdav.js        # WebDAV 协议客户端（SW 内执行）
+│   ├── webdav.js        # WebDAV 协议客户端（SW 内执行，默认 URL + 逐级建目录）
 │   └── messaging.js     # 消息层（sendMessage + sender 校验 + action 分发）
-├── popup.html/js        # 弹窗 UI
-├── options.html/js      # 设置页
+├── handlers/            # SW action 处理器（按域拆分，background 只做装配）
+│   ├── tab.js           # 标签页 / 权限检测
+│   ├── account.js       # 账号 CRUD / 切换 / 清场
+│   ├── settings.js      # 设置 / 密码锁 / 主密钥
+│   ├── backup.js        # 本地备份（口令策略：有锁自动 / 无锁 NEED_PIN）
+│   └── webdav.js        # WebDAV 备份（URL 留空默认 + base64 认证）
+├── popup.html/js        # 弹窗 UI（珊瑚粉 B v2：身份锚点 + 账号卡片 + 图标栏）
+├── options.html/js      # 设置页（珊瑚粉 S2：状态栏 + 分区卡片）
+├── ui/                  # 页面视图层（参数驱动纯函数，无共享状态）
+│   ├── popup-render.js  # 弹窗渲染：账号卡片/分组/状态栏（含 GROUP_COLORS 分组色）
+│   ├── popup-ui.js      # 弹窗视图：身份区/授权横幅/保存面板
+│   └── webdav-options.js# 设置页 WebDAV 区块（测试/保存/推送/拉取）
 ├── _locales/            # zh_CN + en 多语言
 ├── assets/              # 图标
 └── key.pem              # 扩展私钥（固定 ID 用，不提交 Git）
 ```
+
+**分层原则**：UI（popup/options + ui/* 视图层）→ `sendMessage(action)` → background 消息路由 → handlers/*（按域）→ lib/* → chrome API → 结果回传。**页面层零 chrome.* 直调**（仅 permissions 手势必需）；视图层纯函数参数驱动，可脱离浏览器单测。
 
 **数据流**：UI 层（popup/options）→ `sendMessage(action)` → background 消息路由 → lib/* → chrome API → 结果回传。
 
@@ -111,6 +123,22 @@ edge-multi-account-cookie/
 ### 20. 数据版本迁移
 
 **TL;DR**：v2 的 `DATA_VERSION=2` 无迁移逻辑。**storage.js 现为 v3**，读取时惰性迁移（明文 value → MK 加密），失败降级返回 + `migrationPending` 标记下次重试，不阻塞使用。
+
+### 21. 备份口令策略（v2.5.0）
+
+**TL;DR**：备份口令与密码锁统一——**有锁自动用锁密码**（`cachePinInSession` 在 `pin.unlock`/`pin.set` 成功后把明文 PIN 缓存到 `storage.session`，仅会话有效）；无锁抛 `NEED_PIN` 让 UI 弹窗。导入先自动试锁密码、失败回退 `NEED_PIN`（兼容 WebDAV 密码/历史口令）。**坑**：明文 PIN 只在 session 缓存、不落盘；关闭密码锁必须 `clearPinSessionCache()`。
+
+### 22. WebDAV 默认 URL 与固定备份目录（v2.5.0）
+
+**TL;DR**：用户要求"URL 留空用默认地址、界面不提示"。`normalizeWebdavUrl` 仅去空白+留空兜底默认（**不自动补协议**——填裸 IP 报格式错误是刻意行为）；备份固定存 `workbuddy/网页账号管理/`（URL 编码常量 `BACKUP_DIR`），`ensureBackupDir` **逐级 MKCOL**（MKCOL 一次只能建一层，父目录缺失会 409）。Basic Auth 用 `btoa(unescape(encodeURIComponent(user:pass)))` 支持中文。
+
+### 23. UI 视图层拆分原则（v2.5.0 重构）
+
+**TL;DR**：popup.js 曾 418 行。按"**参数驱动纯视图拆出、状态编排留主文件**"原则：`ui/popup-ui.js`（身份区/横幅/面板）+ `ui/popup-render.js`（卡片/分组/状态栏）。视图函数零共享状态（`renderIdentity({domain,granted})` 等），18 项冒烟测试因纯函数化全部可独立验证。**坑**：`script` 顺序敏感（popup-render → popup-ui → popup），视图函数必须先行注册。
+
+### 24. 数据一致性保护（P1 硬伤修复）
+
+**TL;DR**：① `applyCookies` 快照失败时静默丢失回滚能力 → 新增 `snapshotFailed` 上报；② `site.clear` cookie 清除有失败仍清 localStorage → **失败时不刷 localStorage**（防半退出），popup/右键菜单同步提示。
 
 ## 构建 & 发布
 
