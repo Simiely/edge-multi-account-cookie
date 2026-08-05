@@ -27,6 +27,9 @@ const SETTINGS_ACTIONS = {
       if (!r.ok) throw new Error(r.locked ? '密码锁已锁定' : '当前密码错误');
     }
     await setPin(newPin || '', currentPin || '');
+    // 同步会话 PIN 缓存：设置/更换→缓存新 PIN；关闭→清除
+    if (newPin) await cachePinInSession(newPin);
+    else await clearPinSessionCache();
     return { ok: true };
   },
 
@@ -35,6 +38,8 @@ const SETTINGS_ACTIONS = {
     if (!r.ok) return r;
     // 解锁主密钥会话缓存（后续 cookie 加解密可用）
     await unlockMasterKey(payload.pin);
+    // 缓存明文 PIN（备份导出/导入自动加解密用）
+    await cachePinInSession(payload.pin);
     return r;
   },
 

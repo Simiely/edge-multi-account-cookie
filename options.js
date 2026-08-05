@@ -162,17 +162,9 @@ async function handleSavePin() {
 // ============================================================
 
 async function handleExport() {
-  const opts = await sendMessage('options.get');
-  if (!opts.pinSet) {
-    showMsg(backupStatus, '请先在「密码锁」中设置密码', 'error');
-    return;
-  }
-
-  const pwd = prompt('🔐 输入导出加密密码（建议使用密码锁密码）：');
-  if (!pwd) return;
-
+  // 有锁：自动用密码锁密码；无锁：弹窗输入口令。都不需要先设密码锁。
   try {
-    const data = await sendMessage('backup.export', { pin: pwd });
+    const data = await sendMessage('backup.export', {});
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -180,8 +172,27 @@ async function handleExport() {
     a.download = `cookie-switcher-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showMsg(backupStatus, '✅ 数据导出成功（使用输入的密码可解密导入）', 'success');
+    showMsg(backupStatus, '✅ 数据导出成功（已用密码锁密码加密）', 'success');
   } catch (e) {
+    if (e.message === 'NEED_PIN') {
+      // 无密码锁（或无缓存 PIN）→ 弹窗让用户输入口令
+      const pwd = prompt('🔐 输入导出加密密码（请牢记，导入时需输入相同密码）：');
+      if (!pwd) return;
+      try {
+        const data = await sendMessage('backup.export', { pin: pwd });
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cookie-switcher-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showMsg(backupStatus, '✅ 数据导出成功（使用输入的密码可解密导入）', 'success');
+      } catch (e2) {
+        showMsg(backupStatus, `导出失败：${e2.message}`, 'error');
+      }
+      return;
+    }
     showMsg(backupStatus, `导出失败：${e.message}`, 'error');
   }
 }
@@ -195,13 +206,22 @@ async function handleImport(e) {
     const json = JSON.parse(text);
     if (!json.data) throw new Error('文件格式不正确');
 
+    const mode = importMode.value;
+    // 先自动尝试（有锁用密码锁密码；无锁直接 NEED_PIN）
+    try {
+      const r = await sendMessage('backup.import', { blob: json.data, pin: '', mode });
+      showMsg(backupStatus, `✅ 导入成功：新增 ${r.imported} 个账号${r.skipped ? `，跳过 ${r.skipped} 个同名账号` : ''}`, 'success');
+      fileInput.value = '';
+      return;
+    } catch (err) {
+      if (err.message !== 'NEED_PIN') throw err;
+    }
+    // 自动解密失败/无锁 → 弹窗手动输入口令
     const pwd = prompt('🔐 输入该备份文件的解密密码：');
     if (!pwd) {
       fileInput.value = '';
       return;
     }
-
-    const mode = importMode.value;
     const r = await sendMessage('backup.import', { blob: json.data, pin: pwd, mode });
     showMsg(backupStatus, `✅ 导入成功：新增 ${r.imported} 个账号${r.skipped ? `，跳过 ${r.skipped} 个同名账号` : ''}`, 'success');
   } catch (err) {
