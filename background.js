@@ -16,6 +16,7 @@ importScripts(
   'lib/crypto.js',
   'lib/storage.js',
   'lib/cookies.js',
+  'lib/health.js',
   'lib/security.js',
   'lib/backup.js',
   'lib/webdav.js',
@@ -54,6 +55,36 @@ async function ensureBackupAlarm() {
     const period = Math.max(60, Number(cfg.schedulePeriod) || 1440); // 分钟，最小 60
     chrome.alarms.create('webdav-backup', { delayInMinutes: period, periodInMinutes: period });
   } catch (e) { /* ignore */ }
+}
+
+/**
+ * 每日会话体检（v2.7.0）：遍历所有账号，探测 Keycloak 类会话存活状态并更新 health。
+ * 注意：SW 上下文 fetch 跨域需 host_permissions；未授权域名探测失败返回 unknown，
+ *       不误报为失效（与 popup 直调探测共用 lib/health.js 逻辑）。
+ */
+async function runSessionHealthCheck() {
+  try {
+    const data = await loadRawData();
+    const accounts = data.accounts || {};
+    let checked = 0, ok = 0, expired = 0, unknown = 0;
+    for (const domain of Object.keys(accounts)) {
+      for (const name of Object.keys(accounts[domain])) {
+        const entry = accounts[domain][name];
+        if (!entry || !Array.isArray(entry.cookies) || entry.cookies.length === 0) continue;
+        const probe = await probeSession(domain, entry.cookies);
+        if (probe && probe.status) {
+          await updateAccountHealth(domain, name, probe.status);
+          checked++;
+          if (probe.status === 'ok') ok++;
+          else if (probe.status === 'expired') expired++;
+          else unknown++;
+        }
+      }
+    }
+    log('log', `会话体检完成：检查 ${checked}（有效 ${ok} / 失效 ${expired} / 未知 ${unknown}）`);
+  } catch (e) {
+    log('warn', `会话体检失败：${e.message}`);
+  }
 }
 
 async function runWebdavBackup() {
@@ -109,10 +140,13 @@ function rebuildContextMenus() {
           contexts: ['page']
         });
         for (const name of names.slice(0, 8)) { // 最多 8 个，避免菜单过长
+          // 健康标记（v2.7.0）：失效账号标题加 ⚠
+          const acc = accounts[name] || {};
+          const title = acc.health === 'expired' ? `⚠️ ${name}（会话失效）` : name;
           chrome.contextMenus.create({
             id: MENU_SWITCH_PREFIX + name,
             parentId: MENU_ROOT,
-            title: name,
+            title,
             contexts: ['page']
           });
         }
@@ -130,6 +164,8 @@ function rebuildContextMenus() {
 chrome.runtime.onInstalled.addListener((details) => {
   rebuildContextMenus();
   ensureBackupAlarm();
+  // 每日会话体检（v2.7.0）：24h 后首检，之后每 24h 一次
+  chrome.alarms.create('session-health-check', { delayInMinutes: 24 * 60, periodInMinutes: 24 * 60 });
   // 清理已被移除功能的遗留数据（白名单）
   chrome.storage.local.remove('cookie_switcher_whitelist').catch(() => {});
   if (details.reason === 'install') {
@@ -197,6 +233,8 @@ chrome.commands.onCommand.addListener((command) => {
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'webdav-backup') {
     runWebdavBackup();
+  } else if (alarm.name === 'session-health-check') {
+    runSessionHealthCheck();
   }
 });
 

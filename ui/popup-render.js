@@ -70,6 +70,19 @@ function createAccountCard(name, account, group) {
   const nameEl = document.createElement('div');
   nameEl.className = 'name';
   nameEl.textContent = name;
+  // 健康徽标（v2.7.0）：expired 显示红点，ok 显示绿点
+  const health = account.health || 'unknown';
+  if (health === 'expired') {
+    const badge = document.createElement('span');
+    badge.className = 'health-badge expired';
+    badge.title = '会话已失效：服务端不再认可，建议重新登录保存';
+    nameEl.appendChild(badge);
+  } else if (health === 'ok') {
+    const badge = document.createElement('span');
+    badge.className = 'health-badge ok';
+    badge.title = `会话健康 · 最近验证 ${account.lastVerifiedAt ? new Date(account.lastVerifiedAt).toLocaleString('zh-CN', { hour12: false }) : '未知'}`;
+    nameEl.appendChild(badge);
+  }
   info.appendChild(nameEl);
 
   const meta = document.createElement('div');
@@ -77,6 +90,7 @@ function createAccountCard(name, account, group) {
   const cookieCount = (account.cookies || []).length;
   meta.textContent = `${cookieCount} 个 Cookie`;
   if (group) meta.textContent += ` · ${group}`;
+  if (health === 'expired') meta.textContent += ` · ⚠ 会话失效`;
   info.appendChild(meta);
 
   card.appendChild(info);

@@ -295,17 +295,31 @@ async function handleSaveAccount() {
     const group = inputGroup.value.trim();
     // popup 直调（修复：SW 上下文 cookies.getAll 读不到 cookie）：
     // 在 popup 上下文读 cookie（activeTab + 持久授权均可用）+ 抓 localStorage + 落库
-    const cookies = await getCookies(currentDomain);
+    const rawCookies = await getCookies(currentDomain);
+
+    // 保存前清洗：同名 cookie 去重（优先保留域 cookie），防止多套会话混存（v2.7.0）
+    const { deduped, removed, warnings } = dedupeCookies(rawCookies);
+
     let lsData = {};
     if (currentTabId > 0) {
       try { lsData = await getTabLocalStorage(currentTabId); } catch (e) { /* ignore */ }
     }
-    await saveAccount(currentDomain, name, cookies, lsData, group);
+    await saveAccount(currentDomain, name, deduped, lsData, group);
 
-    if (cookies.length === 0) {
+    if (rawCookies.length === 0) {
       showStatus(statusBar, `⚠️ 已保存「${name}」但没有读取到任何 Cookie。可能缺少主机权限，请点击「授权访问此网站」`, 'error');
     } else {
-      showStatus(statusBar, `✓ 已保存「${name}」(${cookies.length} 个 Cookie${Object.keys(lsData).length ? ` + ${Object.keys(lsData).length} 项页面数据` : ''})`);
+      let msg = `✓ 已保存「${name}」(${deduped.length} 个 Cookie${Object.keys(lsData).length ? ` + ${Object.keys(lsData).length} 项页面数据` : ''})`;
+      if (removed.length) {
+        msg += `，已去重 ${removed.length} 条重复 Cookie`;
+        showStatus(statusBar, msg, 'warning');
+      } else {
+        showStatus(statusBar, msg);
+      }
+    }
+    // 会话混存警告（可能影响登录态）
+    if (warnings.length > 0) {
+      setTimeout(() => showStatus(statusBar, warnings[0], 'warning', 6000), 2600);
     }
     inputName.value = '';
     inputGroup.value = '';
@@ -319,7 +333,13 @@ async function handleSaveAccount() {
 }
 
 async function handleSwitchAccount(name, account) {
-  showStatus(statusBar, `⏳ 正在切换到「${name}」...`, 'success', 0);
+  // 切换前自检（v2.7.0）：历史坏数据（同名不同值 cookie）先提示，不拦截
+  const preCheck = dedupeCookies(account.cookies || []);
+  if (preCheck.warnings.length > 0) {
+    showStatus(statusBar, `⚠️ 「${name}」检测到 ${preCheck.warnings.length} 处会话混存，建议先删除后重新保存`, 'warning');
+  } else {
+    showStatus(statusBar, `⏳ 正在切换到「${name}」...`, 'success', 0);
+  }
 
   try {
     // popup 直调（修复 SW 读不到 cookie）：清旧 + 写新 + localStorage，都在 popup 上下文
@@ -333,8 +353,23 @@ async function handleSwitchAccount(name, account) {
       showStatus(statusBar, `「${name}」使用失败`, 'error');
       return;
     }
-    showStatus(statusBar, `✓ 已切换到「${name}」`, 'success');
+
+    // 切换成功后探测会话健康（v2.7.0）：能探测（Keycloak 类站点）→ 更新健康状态
+    let probe = null;
+    try {
+      probe = await probeSession(currentDomain, account.cookies || []);
+      if (probe && probe.status) {
+        await updateAccountHealth(currentDomain, name, probe.status);
+      }
+    } catch (e) { /* 探测失败不影响切换 */ }
+
+    if (probe && probe.status === 'expired') {
+      showStatus(statusBar, `「${name}」切换成功，但服务端判定会话已失效，请重新登录保存`, 'warning');
+    } else {
+      showStatus(statusBar, `✓ 已切换到「${name}」`, 'success');
+    }
     if (currentTabId > 0) await chrome.tabs.reload(currentTabId);
+    await renderAccountList(); // 刷新健康徽标
   } catch (e) {
     showStatus(statusBar, `「${name}」使用失败`, 'error');
   }

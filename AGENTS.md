@@ -18,6 +18,7 @@
 │   ├── crypto.js        # AES-GCM + PBKDF2(60w) + 主密钥 + 分块 base64 —— 零 chrome API
 │   ├── storage.js       # storage.local CRUD + 账号模型 + 版本迁移 + 主密钥落盘
 │   ├── cookies.js       # Cookie/页面数据操作 + applyCookies（partitionKey/回滚）
+│   ├── health.js        # 会话健康：保存去重 dedupeCookies + 存活探测 probeSession（v2.7.0）
 │   ├── security.js      # 密码锁（PBKDF2 + 防爆破）
 │   ├── backup.js        # 本地导出/导入（merge/replace）
 │   ├── webdav.js        # WebDAV 协议客户端（SW 内执行）
@@ -54,6 +55,9 @@
 14. **数据版本迁移**：`DATA_VERSION=3`（storage.js），读取时惰性迁移，失败标记 `migrationPending` 不阻塞
 15. **权限最小化**：不用 `<all_urls>`，按需授权；WebDAV 服务器域名在 options 页 `permissions.request`（必须用户手势上下文）
 16. **permissions.request 禁止走 SW 消息路由**：`chrome.permissions.request()` 必须在 popup/options 页面（用户手势上下文）**直接调用**——经 sendMessage 到 SW 会报 `This function must be called during a user gesture`。SW 里只能做只读检测 `permissions.contains`（background 中仅提供 `permission.check`，无 `permission.ensure`）
+17. **保存必须去重（v2.7.0）**：`getCookies` 合并主域/父域/带点/不带点后同名 cookie 可能多条（多套会话混存根因）——保存前一律过 `dedupeCookies()`（保留带前导点 domain 的），handlers/account.js 与 popup.js 两处都要改
+18. **会话探测放 popup 直调（v2.7.0）**：`probeSession()` 请求 Keycloak userinfo 依赖页面上下文 cookie——必须 popup 直调（同坑 25）；SW 每日体检只能探测已授权域名，失败降级 unknown 不误报
+19. **账号健康字段**：`saveAccount` 默认 `health:'unknown', lastVerifiedAt:0`；切换后/体检用 `updateAccountHealth(domain,name,status)` 更新；UI 卡片绿点=ok、红点=expired；新增字段不得破坏旧数据（无字段按 unknown 处理）
 
 ## 约定
 

@@ -15,8 +15,10 @@ const ACCOUNT_ACTIONS = {
     // 明文存储 cookie value（与浏览器自身 Cookies 数据库一致，避免 AES 加密膨胀超 4096 上限导致切换失效）
     // 安全性：备份/导出环节仍整包加密；本方案兼容旧 enc: 数据（applyCookies 解密逻辑保留）
     const cookies = await getCookies(domain);
+    // 保存前清洗：同名 cookie 去重，防止多套会话混存（v2.7.0）
+    const { deduped } = dedupeCookies(cookies);
     const plain = [];
-    for (const c of cookies) {
+    for (const c of deduped) {
       plain.push({
         name: c.name,
         value: String(c.value || ''),
@@ -85,7 +87,16 @@ const ACCOUNT_ACTIONS = {
     if (Object.keys(account.localStorage || {}).length > 0) {
       await setTabLocalStorage(tabId, account.localStorage);
     }
-    return result;
+    // 切换后探测会话健康（v2.7.0）
+    let health = null;
+    try {
+      const probe = await probeSession(domain, account.cookies || []);
+      if (probe && probe.status) {
+        await updateAccountHealth(domain, name, probe.status);
+        health = probe.status;
+      }
+    } catch (e) { /* 探测失败不影响切换 */ }
+    return { ...result, health };
   },
 
   'site.clear': async (payload) => {

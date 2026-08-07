@@ -152,6 +152,18 @@ edge-multi-account-cookie/
 
 **TL;DR**：`chrome.cookies.getAll({domain})` 只精确匹配该域，**不返回子域 cookie**（如 ums.huaban.com 的 locale）。`getCookies` 同时查 domain / .domain / 父域链合并去重，覆盖子域，修复"清除不干净"（清除后花瓣 JS 会自动补种游客统计 cookie，属正常现象，登录核心是 auth_key 不重种）。
 
+### 28. 多套会话混存（v2.7.0 P0 修复，登录失效根因）
+
+**TL;DR**：`getCookies` 合并主域/父域/带点/不带点查询后，同名 cookie 可能多条（如 `.www.codebuddy.cn` 与 `www.codebuddy.cn` 各一套 KEYCLOAK_SESSION/AUTH_SESSION_ID/KEYCLOAK_IDENTITY，值不同）。保存时全量入库 → 切换时两套会话交叉写入 → Keycloak 校验失败 → "登录不了"（且无任何预警）。**修复：保存前 `dedupeCookies()` 按同名去重，保留 domain 带前导点的域 cookie；值不同则提示"疑似多套会话混存"。** 教训：cookie 快照类扩展必须做"保存时去重 + 切换前自检"，坏数据不能等到用户切换才暴露。
+
+### 29. 会话存活探测（v2.7.0）
+
+**TL;DR**：cookie 快照的 token 未过期但服务端会话可能已被清理（如 Keycloak SSO 会话过期/账号登出），切换后无感知。**修复：新增 `lib/health.js` `probeSession()`——请求 `https://{domain}/auth/realms/{realm}/protocol/openid-connect/userinfo`（realm 从 cookie path `/auth/realms/{realm}/` 提取），200=ok / 401=expired / 其他=unknown**。注意三点：① 探测须在 popup 直调（同坑 25，SW 读不到 cookie）；② 无 host_permissions 时 fetch 会被 CORS 拦，**必须降级为 unknown 而非 expired**（否则误报失效）；③ 非 Keycloak 站点 realm 提取失败直接 unknown 跳过。
+
+### 30. 每日体检 alarm（v2.7.0）
+
+**TL;DR**：`chrome.alarms.create('session-health-check', {delayInMinutes: 24*60, periodInMinutes: 24*60})` 后台每日遍历账号 `probeSession` 更新 health。**坑**：SW 上下文 fetch 跨域仅对已授权（host_permissions）域名有效，未授权域名探测失败返回 unknown，不误报；体检失败只 log 不弹错。
+
 ## 构建 & 发布
 
 - 打包 ZIP：Python 脚本（排除 .gitignore/CODE_REVIEW.md/key.pem/REFACTOR_*.md，剔除 .git 目录）

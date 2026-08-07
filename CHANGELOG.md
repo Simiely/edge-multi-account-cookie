@@ -1,6 +1,17 @@
 # 更新日志（CHANGELOG）
 
-## v2.6.0（当前版本）
+## v2.7.0（当前版本）
+
+**会话健康管理（解决"数据混乱 / 登录失效"两类问题）**
+
+- **保存前自动去重**：同名 cookie 多条时保留域 cookie（domain 带前导点），消除"多套会话混存"（如 Keycloak 双套 KEYCLOAK_SESSION/AUTH_SESSION_ID 并存导致的切换失效）；去重数量与警告实时提示
+- **会话存活探测**：新增 `lib/health.js`，切换后请求 Keycloak userinfo 端点判断会话是否仍被服务端认可（200=有效 / 401=失效）；非 Keycloak 站点自动跳过，无权限/网络失败降级为 unknown 不误报
+- **健康状态标记**：每个账号记录 `health`（ok/expired/unknown）与 `lastVerifiedAt`；弹窗账号卡片显示绿点（有效）/红点（失效），右键菜单失效账号带 ⚠ 前缀
+- **切换前自检**：检测到历史混存数据先提示"建议删除后重新保存"（不拦截切换）
+- **每日会话体检**：`chrome.alarms` 每 24h 后台探测所有账号会话存活状态，失效账号自动标红（无需等切换才发现）
+- **数据兼容**：旧账号无 health 字段自动按 unknown 处理，读写无损
+
+## v2.6.0
 
 **核心修复：Cookie 操作改回 popup 直调（花瓣登录根因）**
 - **根因**：Edge 的 Service Worker 上下文 `chrome.cookies.getAll` 读不到 Cookie（CDP 实测：同一授权 SW=0 / popup=12）——v2.5 把保存/切换/清除迁到 SW 后，保存读到 0 个 Cookie → 切换无效

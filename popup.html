@@ -73,6 +73,12 @@ body {
 }
 .account-card .info { flex: 1; min-width: 0; }
 .account-card .info .name { font-size: 12px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.health-badge {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-left: 6px; vertical-align: middle; flex-shrink: 0;
+}
+.health-badge.ok { background: var(--success); box-shadow: 0 0 4px rgba(93,202,165,0.5); }
+.health-badge.expired { background: var(--danger); box-shadow: 0 0 4px rgba(240,149,149,0.5); }
 .account-card .info .group-tag { font-size: 10px; color: var(--text-3); margin-top: 1px; }
 .account-card .actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
 .account-card:hover .actions { opacity: 1; }
@@ -222,6 +228,7 @@ body {
 <script src="lib/crypto.js"></script>
 <script src="lib/storage.js"></script>
 <script src="lib/cookies.js"></script>
+<script src="lib/health.js"></script>
 <script src="lib/security.js"></script>
 <script src="lib/messaging.js"></script>
 <script src="ui/popup-render.js"></script>
