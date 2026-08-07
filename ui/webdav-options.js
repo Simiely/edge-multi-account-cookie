@@ -28,8 +28,7 @@ const webdavKeep = document.getElementById('webdavKeep');
 const webdavSchedule = document.getElementById('webdavSchedule');
 const btnWebdavTest = document.getElementById('btnWebdavTest');
 const btnWebdavSave = document.getElementById('btnWebdavSave');
-const btnWebdavPush = document.getElementById('btnWebdavPush');
-const btnWebdavPull = document.getElementById('btnWebdavPull');
+const btnWebdavSync = document.getElementById('btnWebdavSync');
 const btnWebdavRemove = document.getElementById('btnWebdavRemove');
 const webdavStatus = document.getElementById('webdavStatus');
 
@@ -51,8 +50,7 @@ function fillWebdavSettings(webdav) {
 function bindWebdavEvents() {
   btnWebdavTest.addEventListener('click', handleWebdavTest);
   btnWebdavSave.addEventListener('click', handleWebdavSave);
-  btnWebdavPush.addEventListener('click', handleWebdavPush);
-  btnWebdavPull.addEventListener('click', handleWebdavPull);
+  btnWebdavSync.addEventListener('click', handleWebdavSync);
   btnWebdavRemove.addEventListener('click', handleWebdavRemove);
 }
 
@@ -160,68 +158,34 @@ async function handleWebdavSave() {
   }
 }
 
-async function handleWebdavPush() {
+/**
+ * v2.9.0：一键同步 = 先拉远端最新合并进本地 → 再上传合并后的全量（双向收敛，无损）。
+ */
+async function handleWebdavSync() {
   try {
     if (!(await ensureMasterKeyUnlocked())) return;
-    btnWebdavPush.disabled = true;
-    btnWebdavPush.textContent = '上传中...';
-    const r = await sendMessage('webdav.push');
-    showMsg(webdavStatus, `✅ 备份已上传：${r.path || r.filename}`, 'success');
-  } catch (e) {
-    showMsg(webdavStatus, `上传失败：${e.message}`, 'error');
-  } finally {
-    btnWebdavPush.disabled = false;
-    btnWebdavPush.textContent = '📤 立即备份';
-  }
-}
+    btnWebdavSync.disabled = true;
+    btnWebdavSync.textContent = '⏳ 同步中...';
+    const r = await sendMessage('webdav.sync');
 
-async function handleWebdavPull() {
-  try {
-    if (!(await ensureMasterKeyUnlocked())) return;
-    btnWebdavPull.disabled = true;
-    btnWebdavPull.textContent = '核对中...';
-
-    // v2.7.3：第一步先下载并做差异核对预览，用户确认后才真正导入（防旧备份覆盖新数据）
-    const p = await sendMessage('webdav.preview');
-
-    const fmtTime = (ts) => ts ? new Date(ts).toLocaleString('zh-CN', { hour12: false }) : '（旧备份无时间标记）';
-    const lines = [];
-    // v2.7.5：已自动筛选数据最新的一份
-    lines.push(`🔍 已自动筛选 ${p.totalBackups || 1} 份备份，选中数据最新的一份：${p.filename}`);
-    lines.push(`远端导出时间：${fmtTime(p.remoteExportedAt)}`);
-    lines.push(`远端账号：${p.remoteAccountCount} 个 | 本地账号：${p.localAccountCount} 个`);
-    if (p.toAdd.length) lines.push(`\n🆕 远端新增（本地没有）：${p.toAdd.length} 个\n  ${p.toAdd.slice(0, 8).join('\n  ')}${p.toAdd.length > 8 ? '\n  ...' : ''}`);
-    if (p.toOverwrite.length) lines.push(`\n🔄 同名但远端更新：${p.toOverwrite.length} 个（智能合并会采用远端新版本）\n  ${p.toOverwrite.slice(0, 8).join('\n  ')}${p.toOverwrite.length > 8 ? '\n  ...' : ''}`);
-    if (p.localOnly.length) lines.push(`\nℹ️ 本地独有（远端没有）：${p.localOnly.length} 个（智能合并保留）`);
-
-    // 危险判定：远端比本地旧 → 警告
-    const staleRisk = p.remoteExportedAt > 0 && !p.remoteNewer && p.localLatestUpdatedAt > p.remoteExportedAt;
-    if (staleRisk) {
-      lines.push(`\n⚠️ 危险提示：远端备份比本地数据旧，智能合并会保留本地新版本，但不会回退。`);
+    const parts = [];
+    if (r.pulled) {
+      const p = r.pulled;
+      const acts = [];
+      if (p.imported) acts.push(`新增 ${p.imported}`);
+      if (p.updated) acts.push(`更新 ${p.updated}`);
+      if (p.skipped) acts.push(`保留 ${p.skipped} 个本地更新`);
+      parts.push(`拉取「${p.filename}」${acts.length ? acts.join('、') : '无变化'}`);
+    } else {
+      parts.push('远端无备份，已创建首份');
     }
-
-    const ok = confirm(`【下载恢复前核对】\n\n${lines.join('\n')}\n\n智能合并：同一账号自动取最新版本，确认恢复？`);
-    if (!ok) {
-      showMsg(webdavStatus, '已取消：未导入任何数据', 'warning');
-      return;
-    }
-
-    btnWebdavPull.textContent = '下载中...';
-    // v2.7.4：智能合并（同名取最新），无需选择模式
-    const r = await sendMessage('webdav.pull', {});
-    const fmtResult = (() => {
-      const parts = [];
-      if (r.imported) parts.push(`新增 ${r.imported}`);
-      if (r.updated) parts.push(`更新 ${r.updated}`);
-      if (r.skipped) parts.push(`保留 ${r.skipped} 个本地更新`);
-      return parts.join('，') || '无变化';
-    })();
-    showMsg(webdavStatus, `✅ 已从 ${r.filename} 恢复：${fmtResult}`, 'success');
+    parts.push(`上传「${r.pushed.filename}」`);
+    showMsg(webdavStatus, `✅ 同步完成：${parts.join('；')}`, 'success');
   } catch (e) {
-    showMsg(webdavStatus, `恢复失败：${e.message}`, 'error');
+    showMsg(webdavStatus, `同步失败：${e.message}`, 'error');
   } finally {
-    btnWebdavPull.disabled = false;
-    btnWebdavPull.textContent = '📥 下载恢复';
+    btnWebdavSync.disabled = false;
+    btnWebdavSync.textContent = '🔄 一键同步';
   }
 }
 

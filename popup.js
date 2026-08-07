@@ -250,12 +250,11 @@ function bindEvents() {
   lockInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleUnlock();
   });
-  document.getElementById('btnWebdavPush').addEventListener('click', handleWebdavPush);
-  document.getElementById('btnWebdavPull').addEventListener('click', handleWebdavPull);
+  document.getElementById('btnWebdavSync').addEventListener('click', handleWebdavSync);
 }
 
 // ============================================================
-//  WebDAV 快捷备份（弹窗直传/下载，复用设置页 action）
+//  WebDAV 快捷同步（弹窗一键同步，复用设置页 action）
 // ============================================================
 
 /**
@@ -272,8 +271,11 @@ async function ensureWebdavConfigured() {
   return true;
 }
 
-async function handleWebdavPush() {
-  const btn = document.getElementById('btnWebdavPush');
+/**
+ * v2.9.0：一键同步 = 先拉远端最新合并进本地 → 再上传合并后的全量（双向收敛，无损）。
+ */
+async function handleWebdavSync() {
+  const btn = document.getElementById('btnWebdavSync');
   try {
     if (!(await ensureWebdavConfigured())) return;
     const mk = await sendMessage('masterkey.available');
@@ -282,42 +284,26 @@ async function handleWebdavPush() {
       return;
     }
     btn.disabled = true;
-    btn.textContent = '⏳ 上传中...';
-    const r = await sendMessage('webdav.push');
-    showStatus(statusBar, `✅ 已上传：${r.filename}`, 'success', 5000);
-  } catch (e) {
-    showStatus(statusBar, `上传失败：${e.message}`, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '📤 上传备份';
-  }
-}
-
-async function handleWebdavPull() {
-  const btn = document.getElementById('btnWebdavPull');
-  try {
-    if (!(await ensureWebdavConfigured())) return;
-    const mk = await sendMessage('masterkey.available');
-    if (!mk.available) {
-      showStatus(statusBar, '主密钥不可用：请先在设置页解锁密码锁', 'error');
-      return;
+    btn.textContent = '⏳ 同步中...';
+    const r = await sendMessage('webdav.sync');
+    const parts = [];
+    if (r.pulled) {
+      const p = r.pulled;
+      const acts = [];
+      if (p.imported) acts.push(`新增 ${p.imported}`);
+      if (p.updated) acts.push(`更新 ${p.updated}`);
+      if (p.skipped) acts.push(`保留 ${p.skipped} 个本地更新`);
+      parts.push(`拉取 ${acts.length ? acts.join('、') : '无变化'}`);
+    } else {
+      parts.push('远端无备份，已创建首份');
     }
-    btn.disabled = true;
-    btn.textContent = '⏳ 下载中...';
-    const r = await sendMessage('webdav.pull', {});
-    const fmtResult = (() => {
-      const parts = [];
-      if (r.imported) parts.push(`新增 ${r.imported}`);
-      if (r.updated) parts.push(`更新 ${r.updated}`);
-      if (r.skipped) parts.push(`保留 ${r.skipped} 个本地更新`);
-      return parts.join('，') || '无变化';
-    })();
-    showStatus(statusBar, `✅ 已恢复：${fmtResult}`, 'success', 5000);
+    parts.push(`上传 ${r.pushed.filename}`);
+    showStatus(statusBar, `✅ 同步完成：${parts.join('；')}`, 'success', 6000);
   } catch (e) {
-    showStatus(statusBar, `下载失败：${e.message}`, 'error');
+    showStatus(statusBar, `同步失败：${e.message}`, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = '📥 下载恢复';
+    btn.textContent = '🔄 一键同步';
   }
 }
 

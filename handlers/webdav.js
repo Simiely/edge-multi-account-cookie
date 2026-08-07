@@ -30,42 +30,39 @@ const WEBDAV_ACTIONS = {
     return { ok: true };
   },
 
-  'webdav.push': async (payload) => {
+  // v2.9.0：一键同步 = 先拉后传（双向收敛，smart 合并保证无损）
+  //  - 拉：下载远端数据最新备份 → smart 合并进本地（同名账号取 updatedAt 最新，本地独有保留）
+  //  - 传：导出合并后的本地全量 → 上传新文件（保留策略自动清理旧文件，数据已含全部最新，不丢）
+  //  - 远端无备份（首次同步）→ 跳过拉取直接上传首份
+  'webdav.sync': async () => {
     const cfg = await getWebdavConfigDecrypted();
     if (!cfg) throw new Error('请先配置 WebDAV');
-    const data = await exportData(cfg.pass); // 备份文件口令 = WebDAV 密码
+    const result = { pulled: null, pushed: null };
+
+    // 第一步：拉取远端最新备份并 smart 合并进本地
+    try {
+      const { filename, content, exportedAt, totalBackups } = await webdavPull(cfg);
+      const outer = JSON.parse(content);
+      const pull = await importData(outer.data, cfg.pass); // smart 合并（同名取最新）
+      result.pulled = { filename, exportedAt, totalBackups, ...pull };
+    } catch (e) {
+      if (e && e.message === '远端没有备份文件') {
+        result.pulled = null; // 首次同步：远端无备份，仅上传
+      } else {
+        throw e;
+      }
+    }
+
+    // 第二步：导出合并后的本地全量并上传（含刚拉取的最新账号）
+    const data = await exportData(cfg.pass);
     const filename = await webdavPush(cfg, JSON.stringify(data));
     const stored = await getWebdavConfig();
     if (stored) {
       stored.lastBackupAt = Date.now();
       await setWebdavConfig(stored);
     }
-    // 返回完整远端路径，便于 UI 确认实际存储位置
-    return { filename, path: `${backupDir(cfg)}/${filename}` };
-  },
-
-  'webdav.pull': async () => {
-    const cfg = await getWebdavConfigDecrypted();
-    if (!cfg) throw new Error('请先配置 WebDAV');
-    const { filename, content } = await webdavPull(cfg);
-    const parsed = JSON.parse(content);
-    // 备份文件用 WebDAV 密码加密，直接解密（口令在 SW 内存，不落盘）
-    // v2.7.4：智能合并（同名账号取最新），无需选择模式
-    const result = await importData(parsed.data, cfg.pass);
-    return { filename, ...result };
-  },
-
-  // v2.7.3：下载最新备份并做差异核对预览（不导入），供 UI 确认后再 pull
-  // v2.7.5：webdavPull 已自动筛选"数据最新"的备份（按 __meta.exportedAt）
-  'webdav.preview': async () => {
-    const cfg = await getWebdavConfigDecrypted();
-    if (!cfg) throw new Error('请先配置 WebDAV');
-    const { filename, content, meta, exportedAt, totalBackups } = await webdavPull(cfg);
-    // 备份外层结构 { version, data }；data 为加密串
-    const outer = JSON.parse(content);
-    const { data } = await parseBackup(outer.data, cfg.pass);
-    const diff = await diffBackup(data, meta);
-    return { filename, exportedAt, totalBackups, ...diff };
+    result.pushed = { filename, path: `${backupDir(cfg)}/${filename}` };
+    return result;
   },
 
   'webdav.remove': async () => {
