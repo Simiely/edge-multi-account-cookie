@@ -1,5 +1,14 @@
 # 更新日志（CHANGELOG）
 
+## v2.8.0（当前版本）
+
+**架构清理 + 行为一致性（基于代码审核与社区调研）**
+
+- **死代码清理**：删除 `handlers/account.js`（8 个 action 全死——popup 直调迁移后的遗留）、`handlers/tab.js`（2 个 action 死）、`index.html`（949 行落地页，manifest 无引用）、`lib/health.js` 死函数（`detectDuplicateNames`/`sessionTokenInfo`/`jwtPayload`/`base64UrlDecode`）；background.js 的 importScripts 与 action 合并注册表同步精简（15 个 action，全被 UI 调用）
+- **行为一致性**：右键菜单切换账号后 fire-and-forget 更新健康标记（与 popup 一致：ok 标绿、其他清红点）——此前菜单切换不更新 health，同一账号两种入口状态不一致
+- **文档沉淀**：AGENTS.md 修正过时信息（双轨说明：popup 直调是刻意设计，勿改回 SW 消息路由；坑 17 改为"禁止按 name 去重 cookie"）；DEVELOPMENT.md 新增"主线逻辑关键点依据"（权限三层防线 / 4KB 明文存储 / 域+host-only 并存 / popup 直调 / 先清后写 / Bearer 探测，均附官方或社区一手来源）
+- **冒烟测试**：background 装配（15 action 无死残留）+ 菜单切换端到端 health 更新 + probeSession Bearer 探测 + WebDAV 内容感知/智能合并回归全过
+
 ## v2.7.5（当前版本）
 
 **WebDAV 自动筛选最新备份（内容感知，不靠文件名猜）**

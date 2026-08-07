@@ -184,6 +184,21 @@ edge-multi-account-cookie/
 
 **TL;DR**：设置页保存 WebDAV 配置后密码框留空（placeholder"已保存"），再点「连接测试」前端校验 `if (!cfg.pass)` 直接报"请填写用户名与密码"——无法测试。**修复**：① SW 端 `webdav.test` 用户名/密码任一为空时自动 `getWebdavConfigDecrypted()` 复用已存凭据；② 前端 `handleWebdavTest` 检测到已保存配置且凭据留空时先 `ensureMasterKeyUnlocked()`（解密已存密码需要 MK）再调 SW。**坑**：复用已存密码必须走 SW 解密（getWebdavConfigDecrypted），前端拿不到明文；有密码锁时需先解锁 MK。
 
+## 主线逻辑关键点依据（GitHub / 官方求证，2026-08-08）
+
+> 主线 = 保存账号 → 切换账号 → 会话健康。每个关键决策都有官方文档或社区一手实证，改动前先读这里。
+
+| # | 关键点 | 依据 |
+|---|---|---|
+| ① | 权限三层防线（cookies + host_permissions + contains 检测） | Chrome 官方 repo issue #455（`getAll` 返回空数组 = 缺 host_permissions，"No host permissions for cookies"）+ SO 50771902（cookies 与 host_permissions 缺一不可） |
+| ② | Cookie 4KB 上限 → 明文存储决策 | Chrome 95 起强制 name+value ≤ 4096 字节、超限拒绝写入（Chrome Platform Status feature 4946713618939904，追踪 bug crbug.com/1225342，引 RFC 6265bis）——AES 加密膨胀 1.35 倍会超限，故 v2.6.0 改明文存储 |
+| ③ | 域 cookie 与 host-only cookie 并存 | `domain=.a.com` 与 `domain=a.com` 是两个独立 cookie 条目（RFC 6265 host-only vs domain cookie；Chrome cookies API 文档）——v2.7.2 移除按 name 去重即因此 |
+| ④ | cookie 操作 popup 直调（双轨） | MV3 cookie 扩展主流做法就是 popup/页面上下文直调（CookieJar，dev.to 作者亲述）；**MV3 SW 的 fetch 默认不带 SameSite cookie**，`credentials:'include'` 也无效、恒定 401，移到页面/content script 上下文立刻正常（AI Karma Tracker，dev.to 踩坑实证）；tabwipe 纯 SW 架构可做 cookie 但事件驱动、无 popup 交互，场景不同 |
+| ⑤ | 切换"先清后写 + 快照回滚" | CookieJar 的 applyCookies 同模式（清空 → 写入 → 失败回滚） |
+| ⑥ | 探测用 Keycloak userinfo Bearer 认证 | Keycloak 官方文档：userinfo endpoint "is protected by a bearer token"（keycloak.org/securing-apps/oidc-layers）；社区实现全部 `Authorization: Bearer <access_token>`（Gamify-IT、skycloak 等）——v2.7.0 曾用 cookie 方式探测恒定 401 误报失效，改 Bearer 后正确 |
+
+**教训**：本插件"数据混乱 / 登录失效"的两大真实根因（v2.7.0 按 name 去重误删 host-only cookie；cookie 方式探测恒定 401 误报）都能在官方/社区资料中找到依据——改动前先求证，别凭直觉"修复"。
+
 ## 构建 & 发布
 
 - 打包 ZIP：Python 脚本（排除 .gitignore/CODE_REVIEW.md/key.pem/REFACTOR_*.md，剔除 .git 目录）

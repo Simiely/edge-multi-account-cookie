@@ -21,9 +21,7 @@ importScripts(
   'lib/backup.js',
   'lib/webdav.js',
   'lib/messaging.js',
-  // action 处理器（按域拆分）
-  'handlers/tab.js',
-  'handlers/account.js',
+  // action 处理器（按域拆分；account/tab 已随 popup 直调迁移移除，v2.8.0）
   'handlers/settings.js',
   'handlers/backup.js',
   'handlers/webdav.js'
@@ -212,6 +210,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       }
       await chrome.tabs.reload(tab.id);
       log('log', `已切换到「${name}」：${JSON.stringify(result)}`);
+      // v2.8.0：切换成功后后台更新健康标记（与 popup 一致：ok 标绿，其他清红点；fire-and-forget 不阻塞）
+      probeSession(domain, account.cookies || []).then((probe) => {
+        if (probe && probe.status) {
+          return updateAccountHealth(domain, name, probe.status === 'ok' ? 'ok' : 'unknown');
+        }
+        return null;
+      }).catch(() => {});
     } catch (e) {
       log('error', `切换失败：${e.message}`);
     }
@@ -243,8 +248,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // ============================================================
 
 registerMessageHandler({
-  ...TAB_ACTIONS,
-  ...ACCOUNT_ACTIONS,
   ...SETTINGS_ACTIONS,
   ...BACKUP_ACTIONS,
   ...WEBDAV_ACTIONS
