@@ -22,11 +22,11 @@ const WEBDAV_ACTIONS = {
   },
 
   'webdav.save': async (payload) => {
-    const { url, user, pass, keep, schedule, schedulePeriod } = payload;
+    const { url, user, pass } = payload;
     const finalUrl = normalizeWebdavUrl(url);
     if (!isValidWebdavUrl(finalUrl)) throw new Error('URL 格式不正确（需 http/https）');
-    await saveWebdavConfig({ url: finalUrl, user, pass, keep, schedule, schedulePeriod });
-    await ensureBackupAlarm();
+    // v2.9.0：保留份数/自动备份已移除，远端固定保留最新 1 份
+    await saveWebdavConfig({ url: finalUrl, user, pass });
     return { ok: true };
   },
 
@@ -67,7 +67,6 @@ const WEBDAV_ACTIONS = {
 
   'webdav.remove': async () => {
     await clearWebdavConfig();
-    await ensureBackupAlarm();
     return { ok: true };
   }
 };

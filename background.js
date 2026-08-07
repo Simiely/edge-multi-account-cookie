@@ -40,20 +40,8 @@ function log(level, msg) {
 }
 
 // ============================================================
-//  WebDAV 定时备份
+//  每日会话体检
 // ============================================================
-
-async function ensureBackupAlarm() {
-  try {
-    const cfg = await getWebdavConfig();
-    if (!cfg || !cfg.schedule || cfg.schedule === 'manual' || !cfg.schedulePeriod) {
-      chrome.alarms.clear('webdav-backup');
-      return;
-    }
-    const period = Math.max(60, Number(cfg.schedulePeriod) || 1440); // 分钟，最小 60
-    chrome.alarms.create('webdav-backup', { delayInMinutes: period, periodInMinutes: period });
-  } catch (e) { /* ignore */ }
-}
 
 /**
  * 每日会话体检（v2.7.0）：遍历所有账号，探测 Keycloak 类会话存活状态并更新 health。
@@ -82,24 +70,6 @@ async function runSessionHealthCheck() {
     log('log', `会话体检完成：检查 ${checked}（有效 ${ok} / 失效 ${expired} / 未知 ${unknown}）`);
   } catch (e) {
     log('warn', `会话体检失败：${e.message}`);
-  }
-}
-
-async function runWebdavBackup() {
-  try {
-    const cfg = await getWebdavConfigDecrypted();
-    if (!cfg) { log('warn', 'WebDAV 备份跳过：无配置或主密钥不可用'); return; }
-    const data = await exportData(cfg.pass); // 用 WebDAV 密码加密导出
-    const filename = await webdavPush(cfg, JSON.stringify(data));
-    // 仅更新 lastBackupAt，避免覆盖 passEnc 等字段
-    const stored = await getWebdavConfig();
-    if (stored) {
-      stored.lastBackupAt = Date.now();
-      await setWebdavConfig(stored);
-    }
-    log('log', `WebDAV 备份完成：${filename}`);
-  } catch (e) {
-    log('error', `WebDAV 自动备份失败：${e.message}`);
   }
 }
 
@@ -161,7 +131,6 @@ function rebuildContextMenus() {
 
 chrome.runtime.onInstalled.addListener((details) => {
   rebuildContextMenus();
-  ensureBackupAlarm();
   // 每日会话体检（v2.7.0）：24h 后首检，之后每 24h 一次
   chrome.alarms.create('session-health-check', { delayInMinutes: 24 * 60, periodInMinutes: 24 * 60 });
   // 清理已被移除功能的遗留数据（白名单）
@@ -236,9 +205,7 @@ chrome.commands.onCommand.addListener((command) => {
 // ============================================================
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'webdav-backup') {
-    runWebdavBackup();
-  } else if (alarm.name === 'session-health-check') {
+  if (alarm.name === 'session-health-check') {
     runSessionHealthCheck();
   }
 });

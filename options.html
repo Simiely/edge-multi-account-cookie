@@ -242,25 +242,8 @@ body {
     <button class="btn btn-outline" id="btnWebdavSync">🔄 一键同步</button>
   </div>
 
-  <div class="advanced-toggle" id="webdavAdvancedToggle">▸ 高级选项（保留份数 · 自动备份计划）</div>
-  <div class="advanced-body" id="webdavAdvancedBody">
-    <div class="form-grid">
-      <div class="field">
-        <label>保留份数</label>
-        <input type="number" id="webdavKeep" value="1" min="1" max="50" />
-      </div>
-      <div class="field">
-        <label>自动备份</label>
-        <select id="webdavSchedule">
-          <option value="manual">手动（仅点击备份）</option>
-          <option value="daily">每天</option>
-          <option value="weekly">每周</option>
-        </select>
-      </div>
-    </div>
-    <div class="btn-row">
-      <button class="btn btn-danger" id="btnWebdavRemove">清除配置</button>
-    </div>
+  <div class="btn-row" style="margin-top:4px;">
+    <button class="btn btn-danger" id="btnWebdavRemove">清除配置</button>
   </div>
 
   <div class="status-msg" id="webdavStatus"></div>

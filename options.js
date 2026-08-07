@@ -156,14 +156,6 @@ function bindEvents() {
   // 数据管理：清空本地账号数据
   document.getElementById('btnClearData').addEventListener('click', handleClearData);
 
-  // WebDAV 高级选项折叠
-  const advToggle = document.getElementById('webdavAdvancedToggle');
-  const advBody = document.getElementById('webdavAdvancedBody');
-  advToggle.addEventListener('click', () => {
-    const open = advBody.classList.toggle('open');
-    advToggle.textContent = open ? '▾ 高级选项（保留份数 · 自动备份计划）' : '▸ 高级选项（保留份数 · 自动备份计划）';
-  });
-
   // WebDAV（事件绑定在 ui/webdav-options.js）
   bindWebdavEvents();
 }

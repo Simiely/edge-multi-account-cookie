@@ -24,8 +24,6 @@ function normalizeWebdavUrl(url) {
 const webdavUrl = document.getElementById('webdavUrl');
 const webdavUser = document.getElementById('webdavUser');
 const webdavPass = document.getElementById('webdavPass');
-const webdavKeep = document.getElementById('webdavKeep');
-const webdavSchedule = document.getElementById('webdavSchedule');
 const btnWebdavTest = document.getElementById('btnWebdavTest');
 const btnWebdavSync = document.getElementById('btnWebdavSync');
 const btnWebdavRemove = document.getElementById('btnWebdavRemove');
@@ -40,8 +38,6 @@ function fillWebdavSettings(webdav) {
   // URL 若为默认服务器则不回填（保持界面简洁，留空即用默认）
   webdavUrl.value = (webdav.url && webdav.url !== DEFAULT_WEBDAV_URL) ? webdav.url : '';
   webdavUser.value = webdav.user || '';
-  webdavKeep.value = webdav.keep || 1;
-  webdavSchedule.value = webdav.schedule || 'manual';
   webdavPass.value = '';
   webdavPass.placeholder = '已保存（留空保持不变）';
 }
@@ -109,9 +105,7 @@ function collectWebdavConfig() {
   return {
     url: webdavUrl.value.trim(),
     user: webdavUser.value.trim(),
-    pass: webdavPass.value.trim(),
-    keep: parseInt(webdavKeep.value, 10) || 1,
-    schedule: webdavSchedule.value
+    pass: webdavPass.value.trim()
   };
 }
 
@@ -191,8 +185,6 @@ async function handleWebdavRemove() {
     webdavUrl.value = '';
     webdavUser.value = '';
     webdavPass.value = '';
-    webdavKeep.value = 1;
-    webdavSchedule.value = 'manual';
     webdavPass.placeholder = 'WebDAV 密码';
     showMsg(webdavStatus, '✅ WebDAV 配置已清除', 'success');
   } catch (e) {
