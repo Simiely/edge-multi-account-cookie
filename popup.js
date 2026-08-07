@@ -5,11 +5,11 @@
 
 let currentDomain = '';
 let currentTabId = -1;
+let currentAccountName = null; // 当前使用的已保存账号（v2.8.0，用于身份区显示与卡片高亮）
 let unlocked = false;
 
 const $ = (id) => document.getElementById(id);
 const inputName = $('inputName');
-const btnSave = $('btnSave');
 const btnSaveConfirm = $('btnSaveConfirm');
 const btnRefresh = $('btnRefresh');
 const btnOptions = $('btnOptions');
@@ -76,13 +76,63 @@ async function boot() {
   await renderAccountList();
 }
 
+/**
+ * 匹配当前浏览器 cookie 对应哪个已保存账号（v2.8.0）。
+ * 规则：逐个账号比对 name+value 相同的 cookie 数，命中数 >= 该账号保存数的一半才算匹配。
+ * @returns {Promise<string|null>} 匹配的账号名；无权限/无账号/无命中返回 null
+ */
+async function matchCurrentAccount() {
+  try {
+    const [cookies, accounts] = await Promise.all([getCookies(currentDomain), getDomainAccounts(currentDomain)]);
+    if (!cookies || cookies.length === 0) return null;
+    const entries = Object.entries(accounts || {});
+    if (entries.length === 0) return null;
+    let best = null, bestScore = 0;
+    for (const [name, account] of entries) {
+      const saved = account.cookies || [];
+      if (saved.length === 0) continue;
+      let score = 0;
+      for (const sc of saved) {
+        if (!sc.value) continue;
+        for (const cc of cookies) {
+          if (cc.name === sc.name && cc.value === sc.value) { score++; break; }
+        }
+      }
+      if (score > bestScore) { bestScore = score; best = name; }
+    }
+    if (!best) return null;
+    const threshold = Math.max(1, Math.ceil((accounts[best].cookies || []).length / 2));
+    return bestScore >= threshold ? best : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * 统一刷新身份区：授权后匹配当前账号并渲染（v2.8.0）。
+ */
+async function refreshIdentity(granted, sub) {
+  if (granted && currentDomain) {
+    currentAccountName = await matchCurrentAccount();
+  } else {
+    currentAccountName = null;
+  }
+  renderIdentity({
+    domain: currentDomain,
+    sub,
+    currentAccount: currentAccountName,
+    avatarChar: (currentDomain || '').charAt(0),
+    granted
+  });
+}
+
 async function initCurrentTab() {
   // popup 直调 tab 查询（v2.2 方式；不依赖 SW）
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
   if (!tab || !tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+    currentAccountName = null;
     renderIdentity({ granted: null, sub: '' });
-    btnSave.disabled = true;
     btnLoginNew.disabled = true;
     return;
   }
@@ -101,16 +151,16 @@ async function verifyCookieAccess() {
     const url = `*://${currentDomain}/*`;
     const hasPerm = await chrome.permissions.contains({ origins: [url] });
     if (hasPerm) {
-      renderIdentity({ domain: currentDomain, sub: 'Cookie Switcher', avatarChar: currentDomain.charAt(0), granted: true });
+      await refreshIdentity(true, 'Cookie Switcher');
     } else {
+      currentAccountName = null;
       renderIdentity({ domain: currentDomain, sub: '未授权 · 点击下方授权', avatarChar: currentDomain.charAt(0), granted: false });
       renderGrantBanner(currentDomain, requestHostPermission);
-      btnSave.disabled = true;
       btnLoginNew.disabled = true;
     }
   } catch (e) {
     // permissions API 不可用，静默继续
-    renderIdentity({ domain: currentDomain, sub: 'Cookie Switcher', avatarChar: currentDomain.charAt(0), granted: true });
+    await refreshIdentity(true, 'Cookie Switcher');
   }
 }
 
@@ -123,8 +173,7 @@ async function requestHostPermission() {
     if (granted) {
       showStatus(statusBar, `✓ 已获得 ${currentDomain} 的访问权限`, 'success');
       hideGrantBanner();
-      renderIdentity({ domain: currentDomain, sub: 'Cookie Switcher', avatarChar: currentDomain.charAt(0), granted: true });
-      btnSave.disabled = false;
+      await refreshIdentity(true, 'Cookie Switcher');
       btnLoginNew.disabled = false;
     } else {
       showStatus(statusBar, '你拒绝了权限请求，部分功能不可用', 'error');
@@ -168,11 +217,14 @@ async function renderAccountList() {
 
   for (const [name, account] of entries) {
     // 行为回调注入（v2.8.0）：popup-render.js 为纯视图，操作函数由本文件传入
-    accountList.appendChild(createAccountCard(name, account, {
+    const card = createAccountCard(name, account, {
       onEdit: handleEditAccount,
       onSwitch: handleSwitchAccount,
       onDelete: handleDeleteAccount
-    }));
+    });
+    // 当前正在使用的账号高亮（v2.8.0）
+    if (name === currentAccountName) card.classList.add('active');
+    accountList.appendChild(card);
   }
 }
 
@@ -181,9 +233,7 @@ async function renderAccountList() {
 // ============================================================
 
 function bindEvents() {
-  // 保存：点击图标展开输入面板（默认收起，按需展开）
-  btnSave.addEventListener('click', toggleSavePanel);
-  btnSave.addEventListener('keydown', (e) => { if (e.key === 'Enter') toggleSavePanel(); });
+  // 保存：顶部常驻面板（v2.8.0）——输入框回车 / 保存按钮均可触发
   inputName.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleSaveAccount();
   });
@@ -309,7 +359,9 @@ async function handleSaveAccount() {
       showStatus(statusBar, `✓ 已保存「${name}」(${cookies.length} 个 Cookie${Object.keys(lsData).length ? ` + ${Object.keys(lsData).length} 项页面数据` : ''})`);
     }
     inputName.value = '';
-    setSavePanel(false); // 保存成功收起面板
+    // v2.8.0：保存的面板常驻顶部（无需收起）；刚保存的账号即当前使用
+    currentAccountName = name;
+    await refreshIdentity(true, 'Cookie Switcher');
     await renderAccountList();
   } catch (e) {
     showStatus(statusBar, `保存失败：${e.message}`, 'error');
@@ -337,7 +389,10 @@ async function handleSwitchAccount(name, account) {
     showStatus(statusBar, `✓ 已切换到「${name}」`, 'success');
     // v2.7.3 修复：先 reload 让登录立即生效（与 v2.6.0 行为一致），探测放后台异步执行，绝不阻塞刷新
     if (currentTabId > 0) await chrome.tabs.reload(currentTabId);
-    await renderAccountList(); // 刷新健康徽标
+    // v2.8.0：切换成功的账号即当前使用（reload 后 cookie 已生效）
+    currentAccountName = name;
+    await refreshIdentity(true, 'Cookie Switcher');
+    await renderAccountList(); // 刷新健康徽标 + 当前账号高亮
 
     // 后台异步探测（fire-and-forget，不 await、不阻塞切换与刷新）
     probeSessionHealthAsync(currentDomain, name, account.cookies || []);
@@ -368,6 +423,11 @@ async function handleDeleteAccount(name) {
   try {
     await deleteAccount(currentDomain, name);
     showStatus(statusBar, `✓ 已删除「${name}」`);
+    // v2.8.0：删除的是当前账号 → 重置身份区显示
+    if (currentAccountName === name) {
+      currentAccountName = null;
+      await refreshIdentity(true, 'Cookie Switcher');
+    }
     await renderAccountList();
   } catch (e) {
     showStatus(statusBar, `删除失败：${e.message}`, 'error');
@@ -383,6 +443,11 @@ async function handleEditAccount(name) {
   if (newName !== null && newName.trim() && newName.trim() !== name) {
     const renamed = await renameAccount(currentDomain, name, newName.trim()).catch(() => false);
     if (renamed) {
+      // v2.8.0：重命名的是当前账号 → 同步身份区显示
+      if (currentAccountName === name) {
+        currentAccountName = newName.trim();
+        await refreshIdentity(true, 'Cookie Switcher');
+      }
       await renderAccountList();
     }
   }
@@ -411,6 +476,10 @@ async function handleLoginNew() {
       showStatus(statusBar, '⚠️ 没有 Cookie 被清除，可能缺少权限', 'error');
     }
     if (currentTabId > 0) await chrome.tabs.reload(currentTabId);
+    // v2.8.0：清 cookie 后不再匹配任何已保存账号
+    currentAccountName = null;
+    await refreshIdentity(true, 'Cookie Switcher');
+    await renderAccountList();
   } catch (e) {
     showStatus(statusBar, `清除失败：${e.message}`, 'error');
   }

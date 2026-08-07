@@ -7,9 +7,10 @@
  */
 
 /**
- * 渲染身份锚点（大头像 + 站点 + 子标题）。
- * @param {object} opts - { domain, sub, avatarChar, granted }
+ * 渲染身份锚点（大头像 + 站点 + 当前账号）。
+ * @param {object} opts - { domain, sub, currentAccount, avatarChar, granted }
  *   granted: true=已授权(主色头像) | false=未授权(灰头像) | null=不支持页面
+ *   currentAccount: 当前使用的已保存账号名（v2.8.0，无则显示 sub 原文）
  */
 function renderIdentity(opts = {}) {
   const avatar = document.getElementById('identityAvatar');
@@ -18,7 +19,14 @@ function renderIdentity(opts = {}) {
   const permEl = document.getElementById('permStatus');
 
   domainEl.textContent = opts.domain || '不支持该页面';
-  subEl.textContent = opts.sub || '';
+  // 已匹配到当前账号 → 突出显示；否则显示调用方传入的 sub（授权状态/提示）
+  if (opts.currentAccount) {
+    subEl.textContent = `当前使用：${opts.currentAccount}`;
+    subEl.className = 'identity-sub';
+  } else {
+    subEl.textContent = opts.sub || '';
+    subEl.className = 'identity-sub muted';
+  }
 
   if (opts.granted === true) {
     avatar.textContent = (opts.avatarChar || '?').charAt(0).toUpperCase();
@@ -63,29 +71,10 @@ function hideGrantBanner() {
 }
 
 /**
- * 切换保存面板展开/收起。返回切换后的可见状态（供调用方判断）。
- * @returns {boolean} true=已展开, false=已收起
- */
-function toggleSavePanel() {
-  const panel = document.getElementById('savePanel');
-  const show = panel.style.display !== 'block';
-  panel.style.display = show ? 'block' : 'none';
-  if (show) document.getElementById('inputName').focus();
-  return show;
-}
-
-/**
- * 设置保存面板可见性（保存成功等场景主动收起）。
- */
-function setSavePanel(show) {
-  document.getElementById('savePanel').style.display = show ? 'block' : 'none';
-}
-
-/**
- * 保存按钮忙碌态（图标 div 置灰）。
+ * 保存按钮忙碌态（顶部保存面板按钮置灰）。
  */
 function setSaveBusy(busy) {
-  const btn = document.getElementById('btnSave');
-  btn.style.opacity = busy ? '0.5' : '1';
-  btn.style.pointerEvents = busy ? 'none' : 'auto';
+  const btn = document.getElementById('btnSaveConfirm');
+  btn.disabled = busy;
+  btn.textContent = busy ? '保存中...' : '保存账号';
 }
