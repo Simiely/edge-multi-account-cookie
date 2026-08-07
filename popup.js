@@ -292,6 +292,8 @@ async function handleWebdavSync() {
       const acts = [];
       if (p.imported) acts.push(`新增 ${p.imported}`);
       if (p.updated) acts.push(`更新 ${p.updated}`);
+      if (p.resurrected) acts.push(`复活 ${p.resurrected}`);
+      if (p.tombstoned) acts.push(`删除同步 ${p.tombstoned}`);
       if (p.skipped) acts.push(`保留 ${p.skipped} 个本地更新`);
       parts.push(`拉取 ${acts.length ? acts.join('、') : '无变化'}`);
     } else {
@@ -408,8 +410,9 @@ async function handleDeleteAccount(name) {
   if (!confirm(`确定要删除「${name}」的账号数据吗？`)) return;
   try {
     await deleteAccount(currentDomain, name);
-    showStatus(statusBar, `✓ 已删除「${name}」`);
-    // v2.8.0：删除的是当前账号 → 重置身份区显示
+    // v2.10.0：软删除（墓碑）——已从本机隐藏，删除标记将随下次同步传播到其他设备
+    showStatus(statusBar, `✓ 已删除「${name}」，将在下次同步时同步到其他设备`);
+    // 删除的是当前账号 → 重置身份区显示
     if (currentAccountName === name) {
       currentAccountName = null;
       await refreshIdentity(true, 'Cookie Switcher');

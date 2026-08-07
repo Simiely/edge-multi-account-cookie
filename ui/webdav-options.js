@@ -163,6 +163,8 @@ async function handleWebdavSync() {
       const acts = [];
       if (p.imported) acts.push(`新增 ${p.imported}`);
       if (p.updated) acts.push(`更新 ${p.updated}`);
+      if (p.resurrected) acts.push(`复活 ${p.resurrected}`);
+      if (p.tombstoned) acts.push(`删除同步 ${p.tombstoned}`);
       if (p.skipped) acts.push(`保留 ${p.skipped} 个本地更新`);
       parts.push(`拉取「${p.filename}」${acts.length ? acts.join('、') : '无变化'}`);
     } else {

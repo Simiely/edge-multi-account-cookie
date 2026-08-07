@@ -92,7 +92,18 @@ async function loadStatBar(opts) {
  */
 async function loadRawDataStat() {
   const result = await chrome.storage.local.get('cookie_switcher_data');
-  return result['cookie_switcher_data'] || { accounts: {} };
+  const data = result['cookie_switcher_data'] || { accounts: {} };
+  // v2.10.0：统计不含墓碑（已删除账号）
+  const active = {};
+  for (const domain of Object.keys(data.accounts || {})) {
+    const names = Object.keys(data.accounts[domain]).filter((n) => !data.accounts[domain][n].deleted);
+    if (names.length) {
+      active[domain] = {};
+      for (const n of names) active[domain][n] = data.accounts[domain][n];
+    }
+  }
+  data.accounts = active;
+  return data;
 }
 
 function togglePinConfig(show) {
