@@ -158,7 +158,11 @@ edge-multi-account-cookie/
 
 ### 29. 会话存活探测（v2.7.0）
 
-**TL;DR**：cookie 快照的 token 未过期但服务端会话可能已被清理（如 Keycloak SSO 会话过期/账号登出），切换后无感知。**修复：新增 `lib/health.js` `probeSession()`——请求 `https://{domain}/auth/realms/{realm}/protocol/openid-connect/userinfo`（realm 从 cookie path `/auth/realms/{realm}/` 提取），200=ok / 401=expired / 其他=unknown**。注意三点：① 探测须在 popup 直调（同坑 25，SW 读不到 cookie）；② 无 host_permissions 时 fetch 会被 CORS 拦，**必须降级为 unknown 而非 expired**（否则误报失效）；③ 非 Keycloak 站点 realm 提取失败直接 unknown 跳过。
+**TL;DR**：cookie 快照的 token 未过期但服务端会话可能已被清理（如 Keycloak SSO 会话过期/账号登出），切换后无感知。**修复：新增 `lib/health.js` `probeSession()`——请求 `https://{domain}/auth/realms/{realm}/protocol/openid-connect/userinfo`（realm 从 cookie path `/auth/realms/{realm}/` 提取），200=ok / 401=expired / 其他=unknown**。注意四点：① 探测须在 popup 直调（同坑 25，SW 读不到 cookie）；② 无 host_permissions 时 fetch 会被 CORS 拦，**必须降级为 unknown 而非 expired**（否则误报失效）；③ 非 Keycloak 站点 realm 提取失败直接 unknown 跳过；④ **认证必须用 `Authorization: Bearer <KEYCLOAK_IDENTITY>`（OIDC 标准）而非 cookie**——cookie 方式在很多 realm 配置下恒定 401，会导致"能切换却提示失效"的误报（用户实测反馈）；无 KEYCLOAK_IDENTITY 时才退回 cookie 方式。
+
+### 33. 切换成功后不标红（v2.7.0 实测修正）
+
+**TL;DR**：切换成功后探测 expired 仍把账号标红 → 用户实测"能真实切换却显示失效"。**修复：切换成功 = cookie 被服务端接受 → 探测 ok 才标绿，expired/unknown 一律重置 unknown（清除旧红点）**；expired 仅在**每日体检**（后台非交互场景）标红，且用户一旦切换成功红点即被清除。教训：交互场景（用户正在切换）以结果为准，非交互场景（后台体检）以探测为准，避免相互矛盾。
 
 ### 30. 每日体检 alarm（v2.7.0）
 

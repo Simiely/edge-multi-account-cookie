@@ -77,13 +77,15 @@ const ACCOUNT_ACTIONS = {
     if (Object.keys(account.localStorage || {}).length > 0) {
       await setTabLocalStorage(tabId, account.localStorage);
     }
-    // 切换后探测会话健康（v2.7.0）
+    // 切换后探测会话健康（v2.7.0）：切换成功 → 探测 ok 标绿，否则重置 unknown 清除旧红点
     let health = null;
     try {
       const probe = await probeSession(domain, account.cookies || []);
-      if (probe && probe.status) {
-        await updateAccountHealth(domain, name, probe.status);
-        health = probe.status;
+      if (probe && probe.status === 'ok') {
+        await updateAccountHealth(domain, name, 'ok');
+        health = 'ok';
+      } else {
+        await updateAccountHealth(domain, name, 'unknown');
       }
     } catch (e) { /* 探测失败不影响切换 */ }
     return { ...result, health };

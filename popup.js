@@ -339,17 +339,21 @@ async function handleSwitchAccount(name, account) {
       return;
     }
 
-    // 切换成功后探测会话健康（v2.7.0）：能探测（Keycloak 类站点）→ 更新健康状态
+    // 切换成功后探测会话健康（v2.7.0）：
+    // 切换成功 → 会话可用；探测 ok 标绿，探测失败/未知清除旧红点（避免"能切换却显失效"）
     let probe = null;
     try {
       probe = await probeSession(currentDomain, account.cookies || []);
-      if (probe && probe.status) {
-        await updateAccountHealth(currentDomain, name, probe.status);
+      if (probe && probe.status === 'ok') {
+        await updateAccountHealth(currentDomain, name, 'ok');
+      } else {
+        // expired/unknown：切换成功说明 cookie 被接受，重置为 unknown（红点清除）
+        await updateAccountHealth(currentDomain, name, 'unknown');
       }
     } catch (e) { /* 探测失败不影响切换 */ }
 
     if (probe && probe.status === 'expired') {
-      showStatus(statusBar, `「${name}」切换成功，但服务端判定会话已失效，请重新登录保存`, 'warning');
+      showStatus(statusBar, `「${name}」已切换，但会话探测返回异常；若页面可正常使用可忽略，否则请重新登录保存`, 'warning');
     } else {
       showStatus(statusBar, `✓ 已切换到「${name}」`, 'success');
     }
