@@ -185,7 +185,8 @@ async function handleWebdavPull() {
 
     const fmtTime = (ts) => ts ? new Date(ts).toLocaleString('zh-CN', { hour12: false }) : '（旧备份无时间标记）';
     const lines = [];
-    lines.push(`远端备份：${p.filename}`);
+    // v2.7.5：已自动筛选数据最新的一份
+    lines.push(`🔍 已自动筛选 ${p.totalBackups || 1} 份备份，选中数据最新的一份：${p.filename}`);
     lines.push(`远端导出时间：${fmtTime(p.remoteExportedAt)}`);
     lines.push(`远端账号：${p.remoteAccountCount} 个 | 本地账号：${p.localAccountCount} 个`);
     if (p.toAdd.length) lines.push(`\n🆕 远端新增（本地没有）：${p.toAdd.length} 个\n  ${p.toAdd.slice(0, 8).join('\n  ')}${p.toAdd.length > 8 ? '\n  ...' : ''}`);

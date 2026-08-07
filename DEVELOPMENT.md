@@ -168,6 +168,10 @@ edge-multi-account-cookie/
 
 **TL;DR**：v2.7.0 为"防多套会话混存"加了保存前按 `name` 去重（`dedupeCookies`），**按 name 分组会误删不带前导点的 host-only cookie**（如 `KEYCLOAK_SESSION@www.codebuddy.cn`）。但**域 cookie（`.www.codebuddy.cn`）与 host-only cookie（`www.codebuddy.cn`）是浏览器中并存的两套合法 cookie**，Keycloak 登录需要同时存在——删掉后切换缺 cookie → 登录失败（v2.6.0 无此逻辑，实测正常登录）。**修复：彻底移除按 name 去重，恢复原样保存**（`getCookies` 已按 `name|domain|path` 去重，粒度正确）；`dedupeCookies` 重写为只读诊断 `detectDuplicateNames`（仅提示不修改）。**教训：cookie 去重必须按 name+domain+path 粒度；"同名"≠"重复"，域 cookie 与 host-only cookie 同名并存是正常态。改动保存逻辑前先用 v2.6.0 行为做回归基准。**
 
+### 35. WebDAV 选"最新备份"不能按文件名（v2.7.5）
+
+**TL;DR**：旧 `webdavPull` 按文件名排序取最后一份（文件名 = push 时刻）。但**文件名可被拷贝/手动上传/同步客户端改名**——目录里可能混入"文件名新、数据旧"的备份（如手动传的 7/4 旧文件叫今天的名字），按文件名会选错。**修复：逐个下载所有备份，优先按文件内 `__meta.exportedAt`（v2.7.3 起的导出时间标记，明文在加密内容内，需 `parseBackup` 解密读取）判定新旧；旧格式无 meta 或解密失败回退 `parseBackupStamp`（文件名 UTC 时间戳，`Date.UTC` 解析与 `Date.now()` 同基准可比）；损坏文件跳过、认证失败（401/403）整体终止**。**坑**：① meta 在加密内容内，选文件就必须解密——把"选文件"逻辑放 `webdavPull(config)`（config 含 pass 仅内存），`parseBackup` 依赖 backup.js 需在其后加载（importScripts 顺序已满足）；② 文件名时间戳用 `toISOString()`（UTC），`__meta.exportedAt` 用 `Date.now()`（UTC 毫秒），两者同基准可直接比较，勿混入本地时区。
+
 ### 30. 每日体检 alarm（v2.7.0）
 
 **TL;DR**：`chrome.alarms.create('session-health-check', {delayInMinutes: 24*60, periodInMinutes: 24*60})` 后台每日遍历账号 `probeSession` 更新 health。**坑**：SW 上下文 fetch 跨域仅对已授权（host_permissions）域名有效，未授权域名探测失败返回 unknown，不误报；体检失败只 log 不弹错。
