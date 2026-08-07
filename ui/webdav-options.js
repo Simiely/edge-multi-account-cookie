@@ -27,7 +27,6 @@ const webdavPass = document.getElementById('webdavPass');
 const webdavKeep = document.getElementById('webdavKeep');
 const webdavSchedule = document.getElementById('webdavSchedule');
 const btnWebdavTest = document.getElementById('btnWebdavTest');
-const btnWebdavSave = document.getElementById('btnWebdavSave');
 const btnWebdavSync = document.getElementById('btnWebdavSync');
 const btnWebdavRemove = document.getElementById('btnWebdavRemove');
 const webdavStatus = document.getElementById('webdavStatus');
@@ -49,7 +48,6 @@ function fillWebdavSettings(webdav) {
 
 function bindWebdavEvents() {
   btnWebdavTest.addEventListener('click', handleWebdavTest);
-  btnWebdavSave.addEventListener('click', handleWebdavSave);
   btnWebdavSync.addEventListener('click', handleWebdavSync);
   btnWebdavRemove.addEventListener('click', handleWebdavRemove);
 }
@@ -111,8 +109,15 @@ function collectWebdavConfig() {
   };
 }
 
+/**
+ * v2.9.0：测试保存 = 测试连接 + 连通后自动保存配置（无需单独"保存配置"按钮）。
+ *  - 测试失败 → 不保存，提示错误
+ *  - 测试成功 → 自动 webdav.save（密码留空时保留已存密码，keep/计划一并保存）
+ */
 async function handleWebdavTest() {
   const cfg = collectWebdavConfig();
+  // URL 权限（保存与同步都需要）
+  if (!(await ensureWebdavPermission(normalizeWebdavUrl(cfg.url)))) return;
   // 用户名/密码留空时：若已保存过配置则交由 SW 复用已存凭据，否则报错
   if (!cfg.user && !cfg.pass) {
     const opts = await sendMessage('options.get');
@@ -121,40 +126,24 @@ async function handleWebdavTest() {
       showMsg(webdavStatus, '请填写用户名与密码', 'error');
       return;
     }
-    // 已保存配置 → 需解锁主密钥才能解密已存密码
-    if (!(await ensureMasterKeyUnlocked())) return;
-  } else {
-    if (!(await ensureWebdavPermission(normalizeWebdavUrl(cfg.url)))) return;
   }
-  btnWebdavTest.disabled = true;
-  btnWebdavTest.textContent = '测试中...';
-  try {
-    const r = await sendMessage('webdav.test', cfg);
-    showMsg(webdavStatus, `✅ 连接成功，服务器上检测到 ${r.count} 个项目`, 'success');
-  } catch (e) {
-    showMsg(webdavStatus, `连接失败：${e.message}`, 'error');
-  } finally {
-    btnWebdavTest.disabled = false;
-    btnWebdavTest.textContent = '🔌 连接测试';
-  }
-}
-
-async function handleWebdavSave() {
-  const cfg = collectWebdavConfig();
-  // URL 可留空（自动使用默认服务器），仅用户名必填
-  if (!cfg.user) {
-    showMsg(webdavStatus, '请填写用户名', 'error');
-    return;
-  }
+  // 测试（密码留空需解密已存密码）与自动保存都需要主密钥
   if (!(await ensureMasterKeyUnlocked())) return;
-  if (!(await ensureWebdavPermission(normalizeWebdavUrl(cfg.url)))) return;
+  btnWebdavTest.disabled = true;
+  btnWebdavTest.textContent = '测试保存中...';
   try {
+    // 1. 测试连接
+    const r = await sendMessage('webdav.test', cfg);
+    // 2. 连通 → 自动保存配置（保存逻辑复用 webdav.save）
     await sendMessage('webdav.save', cfg);
     webdavPass.value = '';
     webdavPass.placeholder = '已保存（留空保持不变）';
-    showMsg(webdavStatus, '✅ WebDAV 配置已保存（密码已加密存储）', 'success');
+    showMsg(webdavStatus, `✅ 连接成功（检测到 ${r.count} 个项目），配置已自动保存`, 'success');
   } catch (e) {
-    showMsg(webdavStatus, `保存失败：${e.message}`, 'error');
+    showMsg(webdavStatus, `测试失败：${e.message}（未保存配置）`, 'error');
+  } finally {
+    btnWebdavTest.disabled = false;
+    btnWebdavTest.textContent = '🔌 测试保存';
   }
 }
 
