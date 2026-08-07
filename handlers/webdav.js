@@ -44,14 +44,14 @@ const WEBDAV_ACTIONS = {
     return { filename, path: `${backupDir(cfg)}/${filename}` };
   },
 
-  'webdav.pull': async (payload) => {
-    const { mode } = payload;
+  'webdav.pull': async () => {
     const cfg = await getWebdavConfigDecrypted();
     if (!cfg) throw new Error('请先配置 WebDAV');
     const { filename, content } = await webdavPull(cfg);
     const parsed = JSON.parse(content);
     // 备份文件用 WebDAV 密码加密，直接解密（口令在 SW 内存，不落盘）
-    const result = await importData(parsed.data, cfg.pass, mode || 'merge');
+    // v2.7.4：智能合并（同名账号取最新），无需选择模式
+    const result = await importData(parsed.data, cfg.pass);
     return { filename, ...result };
   },
 

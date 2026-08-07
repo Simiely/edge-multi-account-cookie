@@ -249,8 +249,15 @@ async function handleWebdavPull() {
     }
     btn.disabled = true;
     btn.textContent = '⏳ 下载中...';
-    const r = await sendMessage('webdav.pull', { mode: 'merge' });
-    showStatus(statusBar, `✅ 已恢复：新增 ${r.imported} 个账号${r.skipped ? `，跳过 ${r.skipped}` : ''}`, 'success', 5000);
+    const r = await sendMessage('webdav.pull', {});
+    const fmtResult = (() => {
+      const parts = [];
+      if (r.imported) parts.push(`新增 ${r.imported}`);
+      if (r.updated) parts.push(`更新 ${r.updated}`);
+      if (r.skipped) parts.push(`保留 ${r.skipped} 个本地更新`);
+      return parts.join('，') || '无变化';
+    })();
+    showStatus(statusBar, `✅ 已恢复：${fmtResult}`, 'success', 5000);
   } catch (e) {
     showStatus(statusBar, `下载失败：${e.message}`, 'error');
   } finally {

@@ -215,30 +215,13 @@ body {
 <!-- Local backup card -->
 <div class="card">
   <div class="card-title"><span class="t">本地备份</span></div>
-  <div class="card-desc">导出 / 导入账号数据。有密码锁时自动用锁密码加解密，未设锁则弹窗输入口令。</div>
+  <div class="card-desc">导出 / 导入账号数据。导入采用智能合并：同一账号自动取最新版本（v2.7.4），无需选择模式。有密码锁时自动用锁密码加解密，未设锁则弹窗输入口令。</div>
 
   <div class="btn-row">
     <button class="btn btn-primary" id="btnExport">导出数据</button>
     <div class="file-input-wrapper">
       <button class="btn btn-outline">导入数据</button>
       <input type="file" id="fileInput" accept=".json" />
-    </div>
-  </div>
-
-  <div class="row" style="margin-top:12px;">
-    <div>
-      <div class="label">导入模式</div>
-      <div class="hint">合并保留现有账号；覆盖清空后导入</div>
-    </div>
-    <div class="right">
-      <div class="seg">
-        <div class="seg-item active" data-mode="merge" id="modeMerge">合并</div>
-        <div class="seg-item" data-mode="replace" id="modeReplace">覆盖</div>
-      </div>
-      <select id="importMode" class="hidden">
-        <option value="merge">合并</option>
-        <option value="replace">覆盖</option>
-      </select>
     </div>
   </div>
 

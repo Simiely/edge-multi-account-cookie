@@ -18,7 +18,6 @@ const lockBanner = $('lockBanner');
 // Backup
 const btnExport = $('btnExport');
 const fileInput = $('fileInput');
-const importMode = $('importMode');
 const backupStatus = $('backupStatus');
 const dataStatus = $('dataStatus');
 
@@ -40,9 +39,6 @@ async function loadSettings() {
 
   // WebDAV（逻辑在 ui/webdav-options.js）
   fillWebdavSettings(opts.webdav);
-
-  // 导入模式分段控件初始态（select 默认 merge）
-  setImportMode(importMode.value || 'merge');
 
   // 状态栏
   await loadStatBar(opts);
@@ -160,10 +156,6 @@ function bindEvents() {
   // 数据管理：清空本地账号数据
   document.getElementById('btnClearData').addEventListener('click', handleClearData);
 
-  // 导入模式分段控件 ↔ select 同步
-  document.getElementById('modeMerge').addEventListener('click', () => setImportMode('merge'));
-  document.getElementById('modeReplace').addEventListener('click', () => setImportMode('replace'));
-
   // WebDAV 高级选项折叠
   const advToggle = document.getElementById('webdavAdvancedToggle');
   const advBody = document.getElementById('webdavAdvancedBody');
@@ -174,12 +166,6 @@ function bindEvents() {
 
   // WebDAV（事件绑定在 ui/webdav-options.js）
   bindWebdavEvents();
-}
-
-function setImportMode(mode) {
-  importMode.value = mode;
-  document.getElementById('modeMerge').classList.toggle('active', mode === 'merge');
-  document.getElementById('modeReplace').classList.toggle('active', mode === 'replace');
 }
 
 async function isPinSetLocal() {
@@ -285,11 +271,18 @@ async function handleImport(e) {
     const json = JSON.parse(text);
     if (!json.data) throw new Error('文件格式不正确');
 
-    const mode = importMode.value;
+    // v2.7.4：智能合并（同名账号取最新），无需选择模式
+    const fmtResult = (r) => {
+      const parts = [];
+      if (r.imported) parts.push(`新增 ${r.imported}`);
+      if (r.updated) parts.push(`更新 ${r.updated}`);
+      if (r.skipped) parts.push(`保留 ${r.skipped} 个本地更新`);
+      return parts.join('，') || '无变化';
+    };
     // 先自动尝试（有锁用密码锁密码；无锁直接 NEED_PIN）
     try {
-      const r = await sendMessage('backup.import', { blob: json.data, pin: '', mode });
-      showMsg(backupStatus, `✅ 导入成功：新增 ${r.imported} 个账号${r.skipped ? `，跳过 ${r.skipped} 个同名账号` : ''}`, 'success');
+      const r = await sendMessage('backup.import', { blob: json.data, pin: '' });
+      showMsg(backupStatus, `✅ 导入完成：${fmtResult(r)}`, 'success');
       fileInput.value = '';
       return;
     } catch (err) {
@@ -301,8 +294,8 @@ async function handleImport(e) {
       fileInput.value = '';
       return;
     }
-    const r = await sendMessage('backup.import', { blob: json.data, pin: pwd, mode });
-    showMsg(backupStatus, `✅ 导入成功：新增 ${r.imported} 个账号${r.skipped ? `，跳过 ${r.skipped} 个同名账号` : ''}`, 'success');
+    const r = await sendMessage('backup.import', { blob: json.data, pin: pwd });
+    showMsg(backupStatus, `✅ 导入完成：${fmtResult(r)}`, 'success');
   } catch (err) {
     showMsg(backupStatus, `导入失败：${err.message}`, 'error');
   }

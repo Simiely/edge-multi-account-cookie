@@ -28,9 +28,10 @@ const BACKUP_ACTIONS = {
 
   /**
    * 导入。有锁时先自动尝试密码锁密码；失败则回退让用户输入（兼容历史备份）。
+   * v2.7.4：默认智能合并（同名账号取最新），无需选择模式。
    */
   'backup.import': async (payload) => {
-    const { blob, pin, mode } = payload;
+    const { blob, pin } = payload;
     // 有锁且未显式提供 pin → 尝试自动用密码锁密码
     if (!pin) {
       const hasPin = await isPinSet();
@@ -38,7 +39,7 @@ const BACKUP_ACTIONS = {
         const cached = await getCachedPin();
         if (cached) {
           try {
-            return await importData(blob, cached, mode || 'merge');
+            return await importData(blob, cached);
           } catch (e) {
             // 密码锁密码解不开（可能是 WebDAV 密码或历史备份口令）→ 回退手动输入
             throw new Error('NEED_PIN');
@@ -48,6 +49,6 @@ const BACKUP_ACTIONS = {
       }
       throw new Error('NEED_PIN');
     }
-    return importData(blob, pin, mode || 'merge');
+    return importData(blob, pin);
   }
 };

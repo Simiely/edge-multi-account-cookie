@@ -1,7 +1,7 @@
 /**
  * ui/webdav-options.js - 设置页 WebDAV 区块 UI 逻辑
  * 由 options.html 在 options.js 之前引入。
- * 依赖：lib/messaging.js（sendMessage）、options.js 的 showMsg / importMode。
+ * 依赖：lib/messaging.js（sendMessage）、options.js 的 showMsg。
  */
 
 // 默认 WebDAV 服务器（与 lib/webdav.js 的 DEFAULT_WEBDAV_URL 保持一致；URL 留空时使用）
@@ -182,7 +182,6 @@ async function handleWebdavPull() {
 
     // v2.7.3：第一步先下载并做差异核对预览，用户确认后才真正导入（防旧备份覆盖新数据）
     const p = await sendMessage('webdav.preview');
-    const mode = importMode.value;
 
     const fmtTime = (ts) => ts ? new Date(ts).toLocaleString('zh-CN', { hour12: false }) : '（旧备份无时间标记）';
     const lines = [];
@@ -190,25 +189,32 @@ async function handleWebdavPull() {
     lines.push(`远端导出时间：${fmtTime(p.remoteExportedAt)}`);
     lines.push(`远端账号：${p.remoteAccountCount} 个 | 本地账号：${p.localAccountCount} 个`);
     if (p.toAdd.length) lines.push(`\n🆕 远端新增（本地没有）：${p.toAdd.length} 个\n  ${p.toAdd.slice(0, 8).join('\n  ')}${p.toAdd.length > 8 ? '\n  ...' : ''}`);
-    if (p.toOverwrite.length) lines.push(`\n🔄 同名但远端更新：${p.toOverwrite.length} 个（replace 会覆盖本地）\n  ${p.toOverwrite.slice(0, 8).join('\n  ')}${p.toOverwrite.length > 8 ? '\n  ...' : ''}`);
-    if (p.localOnly.length) lines.push(`\n⚠️ 本地独有（远端没有）：${p.localOnly.length} 个（replace 模式会【丢失】！）\n  ${p.localOnly.slice(0, 8).join('\n  ')}${p.localOnly.length > 8 ? '\n  ...' : ''}`);
+    if (p.toOverwrite.length) lines.push(`\n🔄 同名但远端更新：${p.toOverwrite.length} 个（智能合并会采用远端新版本）\n  ${p.toOverwrite.slice(0, 8).join('\n  ')}${p.toOverwrite.length > 8 ? '\n  ...' : ''}`);
+    if (p.localOnly.length) lines.push(`\nℹ️ 本地独有（远端没有）：${p.localOnly.length} 个（智能合并保留）`);
 
-    // 危险判定：replace + 本地独有 → 警告；远端比本地旧 → 警告
-    const replaceRisk = mode === 'replace' && p.localOnly.length > 0;
+    // 危险判定：远端比本地旧 → 警告
     const staleRisk = p.remoteExportedAt > 0 && !p.remoteNewer && p.localLatestUpdatedAt > p.remoteExportedAt;
-    if (replaceRisk || staleRisk) {
-      lines.push(`\n⚠️ 危险提示：${replaceRisk ? '「覆盖」模式会删除本地独有账号！建议用「合并」或先备份本地。' : ''}${staleRisk ? '远端备份比本地数据旧，恢复可能回退到旧状态！' : ''}`);
+    if (staleRisk) {
+      lines.push(`\n⚠️ 危险提示：远端备份比本地数据旧，智能合并会保留本地新版本，但不会回退。`);
     }
 
-    const ok = confirm(`【下载恢复前核对】\n\n${lines.join('\n')}\n\n是否继续恢复？`);
+    const ok = confirm(`【下载恢复前核对】\n\n${lines.join('\n')}\n\n智能合并：同一账号自动取最新版本，确认恢复？`);
     if (!ok) {
       showMsg(webdavStatus, '已取消：未导入任何数据', 'warning');
       return;
     }
 
     btnWebdavPull.textContent = '下载中...';
-    const r = await sendMessage('webdav.pull', { mode });
-    showMsg(webdavStatus, `✅ 已从 ${r.filename} 恢复：新增 ${r.imported} 个账号${r.skipped ? `，跳过 ${r.skipped}` : ''}`, 'success');
+    // v2.7.4：智能合并（同名取最新），无需选择模式
+    const r = await sendMessage('webdav.pull', {});
+    const fmtResult = (() => {
+      const parts = [];
+      if (r.imported) parts.push(`新增 ${r.imported}`);
+      if (r.updated) parts.push(`更新 ${r.updated}`);
+      if (r.skipped) parts.push(`保留 ${r.skipped} 个本地更新`);
+      return parts.join('，') || '无变化';
+    })();
+    showMsg(webdavStatus, `✅ 已从 ${r.filename} 恢复：${fmtResult}`, 'success');
   } catch (e) {
     showMsg(webdavStatus, `恢复失败：${e.message}`, 'error');
   } finally {
