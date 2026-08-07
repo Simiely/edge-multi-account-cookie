@@ -168,6 +168,10 @@ edge-multi-account-cookie/
 
 **TL;DR**：v2.7.0 为"防多套会话混存"加了保存前按 `name` 去重（`dedupeCookies`），**按 name 分组会误删不带前导点的 host-only cookie**（如 `KEYCLOAK_SESSION@www.codebuddy.cn`）。但**域 cookie（`.www.codebuddy.cn`）与 host-only cookie（`www.codebuddy.cn`）是浏览器中并存的两套合法 cookie**，Keycloak 登录需要同时存在——删掉后切换缺 cookie → 登录失败（v2.6.0 无此逻辑，实测正常登录）。**修复：彻底移除按 name 去重，恢复原样保存**（`getCookies` 已按 `name|domain|path` 去重，粒度正确）；`dedupeCookies` 重写为只读诊断 `detectDuplicateNames`（仅提示不修改）。**教训：cookie 去重必须按 name+domain+path 粒度；"同名"≠"重复"，域 cookie 与 host-only cookie 同名并存是正常态。改动保存逻辑前先用 v2.6.0 行为做回归基准。**
 
+### 36. 删除同步墓碑机制（v2.10.0）
+
+**TL;DR**：快照式同步中"删除"无法传播——本地删除账号后，远端旧备份还有该账号，下次同步又被 smart 合并拉回来（"远端有本地无"无法区分"你删了"与"从未存在/别人新增"）。**修复（业界标准 tombstone，参考 Storyie 本地优先同步 / DataStax grace period / Figma TTL）**：① `deleteAccount` 改为**软删除**——保留骨架 `{deleted:true, deletedAt}` 清空 cookies/localStorage，删除成为可观察可同步的变化；② `importData` smart 合并加墓碑分支：远端活跃 vs 本地墓碑 → `inc.updatedAt > existing.deletedAt` 才**复活**否则保持；远端墓碑 vs 本地活跃 → 本地 `updatedAt > 墓碑时间` 保留否则**删除传播**；远端墓碑 vs 本地无 → 幂等导入；③ `purgeOldTombstones` TTL 30 天（保存/同步后清理，防无限累积）；④ **所有读取点过滤**：`getDomainAccounts` 统一过滤墓碑（账号列表/统计/菜单/体检自动受益），`loadRawDataStat` 单独过滤，体检靠"墓碑无 cookies 自动跳过"。**坑**：墓碑三配套缺一不可（合并规则 + TTL + 全读取点过滤）；`saveAccount` 整体替换墓碑=复活（无残留）；`renameAccount` 保留 deleted 状态；墓碑 `deletedAt=0`（异常）按保守复活处理；墓碑极小时备份不膨胀；UI 删除提示"将在下次同步时同步到其他设备"。
+
 ### 35. WebDAV 选"最新备份"不能按文件名（v2.7.5）
 
 **TL;DR**：旧 `webdavPull` 按文件名排序取最后一份（文件名 = push 时刻）。但**文件名可被拷贝/手动上传/同步客户端改名**——目录里可能混入"文件名新、数据旧"的备份（如手动传的 7/4 旧文件叫今天的名字），按文件名会选错。**修复：逐个下载所有备份，优先按文件内 `__meta.exportedAt`（v2.7.3 起的导出时间标记，明文在加密内容内，需 `parseBackup` 解密读取）判定新旧；旧格式无 meta 或解密失败回退 `parseBackupStamp`（文件名 UTC 时间戳，`Date.UTC` 解析与 `Date.now()` 同基准可比）；损坏文件跳过、认证失败（401/403）整体终止**。**坑**：① meta 在加密内容内，选文件就必须解密——把"选文件"逻辑放 `webdavPull(config)`（config 含 pass 仅内存），`parseBackup` 依赖 backup.js 需在其后加载（importScripts 顺序已满足）；② 文件名时间戳用 `toISOString()`（UTC），`__meta.exportedAt` 用 `Date.now()`（UTC 毫秒），两者同基准可直接比较，勿混入本地时区。
