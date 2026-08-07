@@ -52,5 +52,14 @@ const SETTINGS_ACTIONS = {
   // ---- 数据迁移（旧 enc: 加密 → 明文，幂等）----
   'data.migratePlain': async () => {
     return migratePlainValues();
+  },
+
+  // ---- 清空本地账号数据（保留密码锁 / WebDAV 配置）----
+  'data.clearAll': async () => {
+    await chrome.storage.local.remove(STORAGE_KEY);
+    try {
+      await chrome.storage.session.remove(MK_SESSION_KEY);
+    } catch (e) { /* ignore */ }
+    return { ok: true };
   }
 };

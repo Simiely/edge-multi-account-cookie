@@ -296,6 +296,18 @@ body {
   <div class="status-msg" id="webdavStatus"></div>
 </div>
 
+<!-- Data management card -->
+<div class="card">
+  <div class="card-title"><span class="t">数据管理</span></div>
+  <div class="card-desc">清空扩展本地保存的全部账号 Cookie 快照（密码锁、WebDAV 配置不受影响）。清空后需重新登录并保存账号。</div>
+
+  <div class="btn-row">
+    <button class="btn btn-danger" id="btnClearData">清空本地账号数据</button>
+  </div>
+
+  <div class="status-msg" id="dataStatus"></div>
+</div>
+
 <script src="lib/crypto.js"></script>
 <script src="lib/storage.js"></script>
 <script src="lib/cookies.js"></script>

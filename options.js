@@ -20,6 +20,7 @@ const btnExport = $('btnExport');
 const fileInput = $('fileInput');
 const importMode = $('importMode');
 const backupStatus = $('backupStatus');
+const dataStatus = $('dataStatus');
 
 // ============================================================
 //  Init
@@ -155,6 +156,9 @@ function bindEvents() {
   // Backup
   btnExport.addEventListener('click', handleExport);
   fileInput.addEventListener('change', handleImport);
+
+  // 数据管理：清空本地账号数据
+  document.getElementById('btnClearData').addEventListener('click', handleClearData);
 
   // 导入模式分段控件 ↔ select 同步
   document.getElementById('modeMerge').addEventListener('click', () => setImportMode('merge'));
@@ -304,6 +308,36 @@ async function handleImport(e) {
   }
 
   fileInput.value = '';
+}
+
+// ============================================================
+//  数据管理：清空本地账号数据
+// ============================================================
+
+async function handleClearData() {
+  // 第一步确认
+  const first = confirm('确定要清空扩展本地保存的全部账号数据吗？\n\n清空后所有已保存的账号 Cookie 快照将被删除，需重新登录保存。');
+  if (!first) return;
+  // 第二步确认（输入确认词，防误触）
+  const word = prompt('此操作不可恢复。\n请输入「清空」以确认执行：');
+  if (word !== '清空') {
+    showMsg(dataStatus, '已取消：输入内容不匹配', 'warning');
+    return;
+  }
+  try {
+    const btn = document.getElementById('btnClearData');
+    btn.disabled = true;
+    btn.textContent = '清空中...';
+    await sendMessage('data.clearAll');
+    showMsg(dataStatus, '✅ 已清空本地账号数据（密码锁 / WebDAV 配置保留）', 'success');
+    await loadSettings(); // 刷新状态栏（账号数归零）
+  } catch (e) {
+    showMsg(dataStatus, `清空失败：${e.message}`, 'error');
+  } finally {
+    const btn = document.getElementById('btnClearData');
+    btn.disabled = false;
+    btn.textContent = '清空本地账号数据';
+  }
 }
 
 // ============================================================
