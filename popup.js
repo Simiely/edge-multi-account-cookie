@@ -322,29 +322,33 @@ async function handleSwitchAccount(name, account) {
       return;
     }
 
-    // 切换成功后探测会话健康（v2.7.0）：
-    // 切换成功 → 会话可用；探测 ok 标绿，探测失败/未知清除旧红点（避免"能切换却显失效"）
-    let probe = null;
-    try {
-      probe = await probeSession(currentDomain, account.cookies || []);
-      if (probe && probe.status === 'ok') {
-        await updateAccountHealth(currentDomain, name, 'ok');
-      } else {
-        // expired/unknown：切换成功说明 cookie 被接受，重置为 unknown（红点清除）
-        await updateAccountHealth(currentDomain, name, 'unknown');
-      }
-    } catch (e) { /* 探测失败不影响切换 */ }
-
-    if (probe && probe.status === 'expired') {
-      showStatus(statusBar, `「${name}」已切换，但会话探测返回异常；若页面可正常使用可忽略，否则请重新登录保存`, 'warning');
-    } else {
-      showStatus(statusBar, `✓ 已切换到「${name}」`, 'success');
-    }
+    showStatus(statusBar, `✓ 已切换到「${name}」`, 'success');
+    // v2.7.3 修复：先 reload 让登录立即生效（与 v2.6.0 行为一致），探测放后台异步执行，绝不阻塞刷新
     if (currentTabId > 0) await chrome.tabs.reload(currentTabId);
     await renderAccountList(); // 刷新健康徽标
+
+    // 后台异步探测（fire-and-forget，不 await、不阻塞切换与刷新）
+    probeSessionHealthAsync(currentDomain, name, account.cookies || []);
   } catch (e) {
     showStatus(statusBar, `「${name}」使用失败`, 'error');
   }
+}
+
+/**
+ * 后台异步会话健康探测（v2.7.3）：切换/刷新完成后再探测，绝不阻塞登录。
+ * 探测内部自带超时，失败静默降级。
+ */
+function probeSessionHealthAsync(domain, name, cookies) {
+  try {
+    Promise.resolve(probeSession(domain, cookies)).then((probe) => {
+      if (!probe || !probe.status) return;
+      if (probe.status === 'ok') {
+        return updateAccountHealth(domain, name, 'ok');
+      }
+      // expired/unknown：切换成功说明 cookie 被接受，重置 unknown 清除旧红点
+      return updateAccountHealth(domain, name, 'unknown');
+    }).catch(() => { /* 探测失败不影响切换 */ });
+  } catch (e) { /* ignore */ }
 }
 
 async function handleDeleteAccount(name) {

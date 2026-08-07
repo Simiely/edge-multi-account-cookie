@@ -55,6 +55,18 @@ const WEBDAV_ACTIONS = {
     return { filename, ...result };
   },
 
+  // v2.7.3：下载最新备份并做差异核对预览（不导入），供 UI 确认后再 pull
+  'webdav.preview': async () => {
+    const cfg = await getWebdavConfigDecrypted();
+    if (!cfg) throw new Error('请先配置 WebDAV');
+    const { filename, content } = await webdavPull(cfg);
+    // 备份外层结构 { version, data }；data 为加密串
+    const outer = JSON.parse(content);
+    const { data, meta } = await parseBackup(outer.data, cfg.pass);
+    const diff = await diffBackup(data, meta);
+    return { filename, ...diff };
+  },
+
   'webdav.remove': async () => {
     await clearWebdavConfig();
     await ensureBackupAlarm();

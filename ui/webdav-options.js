@@ -177,8 +177,35 @@ async function handleWebdavPush() {
 async function handleWebdavPull() {
   try {
     if (!(await ensureMasterKeyUnlocked())) return;
-    const mode = importMode.value;
     btnWebdavPull.disabled = true;
+    btnWebdavPull.textContent = '核对中...';
+
+    // v2.7.3：第一步先下载并做差异核对预览，用户确认后才真正导入（防旧备份覆盖新数据）
+    const p = await sendMessage('webdav.preview');
+    const mode = importMode.value;
+
+    const fmtTime = (ts) => ts ? new Date(ts).toLocaleString('zh-CN', { hour12: false }) : '（旧备份无时间标记）';
+    const lines = [];
+    lines.push(`远端备份：${p.filename}`);
+    lines.push(`远端导出时间：${fmtTime(p.remoteExportedAt)}`);
+    lines.push(`远端账号：${p.remoteAccountCount} 个 | 本地账号：${p.localAccountCount} 个`);
+    if (p.toAdd.length) lines.push(`\n🆕 远端新增（本地没有）：${p.toAdd.length} 个\n  ${p.toAdd.slice(0, 8).join('\n  ')}${p.toAdd.length > 8 ? '\n  ...' : ''}`);
+    if (p.toOverwrite.length) lines.push(`\n🔄 同名但远端更新：${p.toOverwrite.length} 个（replace 会覆盖本地）\n  ${p.toOverwrite.slice(0, 8).join('\n  ')}${p.toOverwrite.length > 8 ? '\n  ...' : ''}`);
+    if (p.localOnly.length) lines.push(`\n⚠️ 本地独有（远端没有）：${p.localOnly.length} 个（replace 模式会【丢失】！）\n  ${p.localOnly.slice(0, 8).join('\n  ')}${p.localOnly.length > 8 ? '\n  ...' : ''}`);
+
+    // 危险判定：replace + 本地独有 → 警告；远端比本地旧 → 警告
+    const replaceRisk = mode === 'replace' && p.localOnly.length > 0;
+    const staleRisk = p.remoteExportedAt > 0 && !p.remoteNewer && p.localLatestUpdatedAt > p.remoteExportedAt;
+    if (replaceRisk || staleRisk) {
+      lines.push(`\n⚠️ 危险提示：${replaceRisk ? '「覆盖」模式会删除本地独有账号！建议用「合并」或先备份本地。' : ''}${staleRisk ? '远端备份比本地数据旧，恢复可能回退到旧状态！' : ''}`);
+    }
+
+    const ok = confirm(`【下载恢复前核对】\n\n${lines.join('\n')}\n\n是否继续恢复？`);
+    if (!ok) {
+      showMsg(webdavStatus, '已取消：未导入任何数据', 'warning');
+      return;
+    }
+
     btnWebdavPull.textContent = '下载中...';
     const r = await sendMessage('webdav.pull', { mode });
     showMsg(webdavStatus, `✅ 已从 ${r.filename} 恢复：新增 ${r.imported} 个账号${r.skipped ? `，跳过 ${r.skipped}` : ''}`, 'success');
