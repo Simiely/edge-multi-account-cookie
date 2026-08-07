@@ -50,6 +50,12 @@ function bindWebdavEvents() {
   btnWebdavTest.addEventListener('click', handleWebdavTest);
   btnWebdavSync.addEventListener('click', handleWebdavSync);
   btnWebdavRemove.addEventListener('click', handleWebdavRemove);
+  // v2.9.0：URL/账号/密码输入框按回车 = 触发测试保存
+  for (const el of [webdavUrl, webdavUser, webdavPass]) {
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); handleWebdavTest(); }
+    });
+  }
 }
 
 // ============================================================
