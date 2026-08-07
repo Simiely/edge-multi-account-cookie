@@ -54,6 +54,15 @@ body {
 /* Account list */
 .list-wrap { padding: 10px 14px; }
 .list-title { font-size: 10px; font-weight: 500; color: var(--text-3); margin-bottom: 6px; letter-spacing: 0.4px; }
+.health-legend {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 10px; color: var(--text-3); margin-bottom: 6px;
+}
+.legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.legend-item .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.legend-item .dot.ok { background: var(--success); }
+.legend-item .dot.expired { background: var(--danger); }
+.legend-item .dot.unknown { background: var(--border); }
 .account-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
 .account-list::-webkit-scrollbar { width: 4px; }
 .account-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -186,6 +195,11 @@ body {
 <!-- Account list -->
 <div class="list-wrap">
   <div class="list-title" id="sectionTitle">已保存的账号</div>
+  <div class="health-legend" id="healthLegend">
+    <span class="legend-item"><span class="dot ok"></span>会话有效</span>
+    <span class="legend-item"><span class="dot expired"></span>会话失效</span>
+    <span class="legend-item"><span class="dot unknown"></span>未检测</span>
+  </div>
   <div class="account-list" id="accountList"></div>
   <div class="empty-state" id="emptyState" style="display:none;">
     <div class="icon">📂</div>

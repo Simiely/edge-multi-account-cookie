@@ -18,6 +18,7 @@ const statusBar = $('statusBar');
 const accountList = $('accountList');
 const emptyState = $('emptyState');
 const sectionTitle = $('sectionTitle');
+const healthLegend = $('healthLegend');
 const lockOverlay = $('lockOverlay');
 const lockInput = $('lockInput');
 const btnUnlock = $('btnUnlock');
@@ -144,6 +145,7 @@ async function renderAccountList() {
   if (!currentDomain) {
     emptyState.style.display = 'block';
     sectionTitle.textContent = '已保存的账号';
+    healthLegend.style.display = 'none';
     return;
   }
 
@@ -153,11 +155,13 @@ async function renderAccountList() {
   if (entries.length === 0) {
     emptyState.style.display = 'block';
     sectionTitle.textContent = '已保存的账号';
+    healthLegend.style.display = 'none';
     return;
   }
 
   emptyState.style.display = 'none';
   sectionTitle.textContent = `已保存的账号（${entries.length}）`;
+  healthLegend.style.display = 'flex';
 
   // 稳定排序：updatedAt 降序（最近保存/更新的排前面）
   entries.sort(([, a], [, b]) => (b.updatedAt || 0) - (a.updatedAt || 0));
