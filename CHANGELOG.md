@@ -1,5 +1,13 @@
 # 更新日志（CHANGELOG）
 
+## v2.9.1（当前版本）
+
+**文档同步（第三轮架构审核发现：README/AGENTS/DEVELOPMENT 仍描述已删除的功能，会误导用户）**
+
+- README：功能表修正（保存去重描述已过时——v2.7.2 已移除按 name 去重；智能备份改为"智能合并同名取最新"；WebDAV 改为"测试保存 + 一键同步"）；`alarms` 权限用途改为"每日会话体检"；WebDAV 使用步骤重写（删除保存配置/立即备份/下载恢复/高级选项/定时备份步骤）
+- AGENTS.md：handlers 目录树 webdav.* action 表更新（test/save/sync/remove）
+- DEVELOPMENT.md：backup.js 模块描述更新（smart 智能合并）；坑 32 按钮文案与"测试保存自动保存"行为补充
+
 ## v2.9.0（当前版本）
 
 **WebDAV 一键同步（上传/下载合并为一个按钮，双向自动对比取最新）**

@@ -18,7 +18,7 @@ edge-multi-account-cookie/
 │   ├── storage.js       # 数据层：账号 CRUD + 版本迁移 + 主密钥落盘
 │   ├── cookies.js       # Cookie/页面数据 + applyCookies（partitionKey/回滚）
 │   ├── security.js      # 密码锁 + 防暴力破解 + PIN 会话缓存
-│   ├── backup.js        # 本地导出/导入（merge/replace）
+│   ├── backup.js        # 本地导出/导入（smart 智能合并 v2.7.4）+ 元数据标记 + webdav.sync 复用
 │   ├── webdav.js        # WebDAV 协议客户端（SW 内执行，默认 URL + 逐级建目录）
 │   └── messaging.js     # 消息层（sendMessage + sender 校验 + action 分发）
 ├── handlers/            # SW action 处理器（按域拆分，background 只做装配）
@@ -182,7 +182,7 @@ edge-multi-account-cookie/
 
 ### 32. WebDAV 测试连接复用已保存凭据（v2.7.0）
 
-**TL;DR**：设置页保存 WebDAV 配置后密码框留空（placeholder"已保存"），再点「连接测试」前端校验 `if (!cfg.pass)` 直接报"请填写用户名与密码"——无法测试。**修复**：① SW 端 `webdav.test` 用户名/密码任一为空时自动 `getWebdavConfigDecrypted()` 复用已存凭据；② 前端 `handleWebdavTest` 检测到已保存配置且凭据留空时先 `ensureMasterKeyUnlocked()`（解密已存密码需要 MK）再调 SW。**坑**：复用已存密码必须走 SW 解密（getWebdavConfigDecrypted），前端拿不到明文；有密码锁时需先解锁 MK。
+**TL;DR**：设置页保存 WebDAV 配置后密码框留空（placeholder"已保存"），再点「测试保存」前端校验 `if (!cfg.pass)` 直接报"请填写用户名与密码"——无法测试。**修复**：① SW 端 `webdav.test` 用户名/密码任一为空时自动 `getWebdavConfigDecrypted()` 复用已存凭据；② 前端 `handleWebdavTest` 检测到已保存配置且凭据留空时先 `ensureMasterKeyUnlocked()`（解密已存密码需要 MK）再调 SW。**坑**：复用已存密码必须走 SW 解密（getWebdavConfigDecrypted），前端拿不到明文；有密码锁时需先解锁 MK。v2.9.0 起该按钮为「测试保存」——测试连通后自动 `webdav.save`（密码留空保留已存），测试失败不保存。
 
 ## 主线逻辑关键点依据（GitHub / 官方求证，2026-08-08）
 

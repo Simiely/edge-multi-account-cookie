@@ -26,7 +26,7 @@
 ├── handlers/            # SW 消息路由 action（按域拆分，background importScripts 加载）
 │   ├── settings.js      # options.get / pin.* / masterkey.available / data.*
 │   ├── backup.js        # backup.export / backup.import
-│   └── webdav.js        # webdav.*（test/save/push/pull/preview/remove）
+│   └── webdav.js        # webdav.*（test/save/sync/remove；push/pull/preview 已随 v2.9.0 同步按钮合并移除）
 │   （v2.8.0 已移除 account.js / tab.js——popup 直调迁移后的死代码）
 ├── ui/                  # UI 侧按功能拆分的脚本（参数驱动纯视图，无共享状态）
 │   ├── popup-render.js  # 弹窗纯渲染：createAccountCard（行为回调注入）/ showStatus
