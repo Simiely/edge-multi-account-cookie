@@ -14,11 +14,10 @@ const ACCOUNT_ACTIONS = {
     const { domain, name, group, tabId } = payload;
     // 明文存储 cookie value（与浏览器自身 Cookies 数据库一致，避免 AES 加密膨胀超 4096 上限导致切换失效）
     // 安全性：备份/导出环节仍整包加密；本方案兼容旧 enc: 数据（applyCookies 解密逻辑保留）
+    // v2.7.2 修复：恢复原样保存（getCookies 已按 name|domain|path 去重；勿按 name 再删）
     const cookies = await getCookies(domain);
-    // 保存前清洗：同名 cookie 去重，防止多套会话混存（v2.7.0）
-    const { deduped } = dedupeCookies(cookies);
     const plain = [];
-    for (const c of deduped) {
+    for (const c of cookies) {
       plain.push({
         name: c.name,
         value: String(c.value || ''),

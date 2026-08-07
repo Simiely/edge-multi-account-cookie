@@ -1,6 +1,15 @@
 # 更新日志（CHANGELOG）
 
-## v2.7.1（当前版本）
+## v2.7.2（当前版本）
+
+**紧急修复：保存时误删 host-only cookie 导致登录失败（P0）**
+
+- **根因**：v2.7.0 引入的保存前按 `name` 去重（`dedupeCookies`），会把不带前导点的 host-only cookie（如 `KEYCLOAK_SESSION@www.codebuddy.cn`）误删——但域 cookie（`.www.codebuddy.cn`）与 host-only cookie 是浏览器中**并存的两套合法 cookie**，Keycloak 登录需要它们同时存在。删除后切换缺关键 cookie → 登录失败（v2.6.0 无此问题，实测可正常登录）
+- **修复**：保存/切换流程**完全移除按 name 去重**，恢复 v2.6.0 的原样保存（`getCookies` 已按 `name|domain|path` 去重，粒度正确，两套 cookie 都会保留）；`dedupeCookies` 重写为只读诊断函数 `detectDuplicateNames`（仅提示不修改数据）
+- **影响面**：受 v2.7.0/v2.7.1 影响的用户，**需重新登录并保存账号**以恢复完整 cookie（历史被删数据无法自动恢复）
+- 切换前"会话混存"误报提示同步移除
+
+## v2.7.1
 
 **数据管理**
 

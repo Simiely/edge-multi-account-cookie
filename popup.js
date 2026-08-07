@@ -281,31 +281,20 @@ async function handleSaveAccount() {
   try {
     // popup 直调（修复：SW 上下文 cookies.getAll 读不到 cookie）：
     // 在 popup 上下文读 cookie（activeTab + 持久授权均可用）+ 抓 localStorage + 落库
-    const rawCookies = await getCookies(currentDomain);
-
-    // 保存前清洗：同名 cookie 去重（优先保留域 cookie），防止多套会话混存（v2.7.0）
-    const { deduped, removed, warnings } = dedupeCookies(rawCookies);
+    // v2.7.2 修复：恢复原样保存——getCookies 已按 name|domain|path 去重；
+    // 勿按 name 再删（域 cookie 与 host-only cookie 需并存，删除会导致登录失败）
+    const cookies = await getCookies(currentDomain);
 
     let lsData = {};
     if (currentTabId > 0) {
       try { lsData = await getTabLocalStorage(currentTabId); } catch (e) { /* ignore */ }
     }
-    await saveAccount(currentDomain, name, deduped, lsData, '');
+    await saveAccount(currentDomain, name, cookies, lsData, '');
 
-    if (rawCookies.length === 0) {
+    if (cookies.length === 0) {
       showStatus(statusBar, `⚠️ 已保存「${name}」但没有读取到任何 Cookie。可能缺少主机权限，请点击「授权访问此网站」`, 'error');
     } else {
-      let msg = `✓ 已保存「${name}」(${deduped.length} 个 Cookie${Object.keys(lsData).length ? ` + ${Object.keys(lsData).length} 项页面数据` : ''})`;
-      if (removed.length) {
-        msg += `，已去重 ${removed.length} 条重复 Cookie`;
-        showStatus(statusBar, msg, 'warning');
-      } else {
-        showStatus(statusBar, msg);
-      }
-    }
-    // 会话混存警告（可能影响登录态）
-    if (warnings.length > 0) {
-      setTimeout(() => showStatus(statusBar, warnings[0], 'warning', 6000), 2600);
+      showStatus(statusBar, `✓ 已保存「${name}」(${cookies.length} 个 Cookie${Object.keys(lsData).length ? ` + ${Object.keys(lsData).length} 项页面数据` : ''})`);
     }
     inputName.value = '';
     setSavePanel(false); // 保存成功收起面板
@@ -318,13 +307,7 @@ async function handleSaveAccount() {
 }
 
 async function handleSwitchAccount(name, account) {
-  // 切换前自检（v2.7.0）：历史坏数据（同名不同值 cookie）先提示，不拦截
-  const preCheck = dedupeCookies(account.cookies || []);
-  if (preCheck.warnings.length > 0) {
-    showStatus(statusBar, `⚠️ 「${name}」检测到 ${preCheck.warnings.length} 处会话混存，建议先删除后重新保存`, 'warning');
-  } else {
-    showStatus(statusBar, `⏳ 正在切换到「${name}」...`, 'success', 0);
-  }
+  showStatus(statusBar, `⏳ 正在切换到「${name}」...`, 'success', 0);
 
   try {
     // popup 直调（修复 SW 读不到 cookie）：清旧 + 写新 + localStorage，都在 popup 上下文
