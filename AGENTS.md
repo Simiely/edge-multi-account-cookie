@@ -28,8 +28,11 @@
 │   ├── backup.js        # backup.export / backup.import
 │   └── webdav.js        # webdav.*（test/save/push/pull/preview/remove）
 │   （v2.8.0 已移除 account.js / tab.js——popup 直调迁移后的死代码）
-├── ui/                  # UI 侧按功能拆分的脚本
-│   └── webdav-options.js# 设置页 WebDAV 区块逻辑（fillWebdavSettings/bindWebdavEvents）
+├── ui/                  # UI 侧按功能拆分的脚本（参数驱动纯视图，无共享状态）
+│   ├── popup-render.js  # 弹窗纯渲染：createAccountCard（行为回调注入）/ showStatus
+│   ├── popup-ui.js      # 弹窗身份区/授权横幅/保存面板 视图
+│   ├── webdav-options.js# 设置页 WebDAV 区块逻辑（fillWebdavSettings/bindWebdavEvents）
+│   └── ui-helpers.js    # 跨页面共享 UI 工具（showMsg）——单一来源，勿在页面文件重复定义
 ├── popup.html/js        # 弹窗 UI（锁屏遮罩 + 账号列表）
 ├── options.html/js      # 设置页（密码锁/备份/WebDAV）
 ├── _locales/            # zh_CN + en
@@ -62,6 +65,7 @@
 
 - 密码锁存 PBKDF2(salt+hash)（`{format:'pbkdf2', salt, hash}`），兼容旧 SHA-256 hex 字符串格式（verifyPin 检测到旧格式验证通过后自动迁移）
 - 设置页 label 撑宽要排除 toggle（`:not(.toggle)`），否则滑块视觉卡中间
+- **UI 分层约定（v2.8.0）**：popup.js / options.js 是**页面级总指挥**（启动、事件绑定、协调 lib、持有共享状态）；`ui/*` 是**参数驱动的纯视图**（不引用页面全局变量、不调用页面全局函数——行为用回调注入，共享工具放 ui/ui-helpers.js）。新增 UI 功能时：渲染逻辑进 ui/*、编排逻辑留在页面文件
 - 版本号：manifest.json 与 CHANGELOG.md 同步；每次发布 bump
 - 新增文案必须同步 `_locales/zh_CN` 与 `_locales/en`
 

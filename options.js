@@ -336,11 +336,5 @@ async function handleClearData() {
 // ============================================================
 //  Helpers
 // ============================================================
-
-function showMsg(el, msg, type) {
-  el.textContent = msg;
-  el.className = `status-msg show ${type}`;
-  setTimeout(() => {
-    el.className = 'status-msg';
-  }, 4000);
-}
+// showMsg 已下沉至 ui/ui-helpers.js（options.html 先于本文件引入），
+// options.js 与 webdav-options.js 共用同一份实现，避免跨文件全局函数依赖。

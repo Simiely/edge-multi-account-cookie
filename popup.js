@@ -167,7 +167,12 @@ async function renderAccountList() {
   entries.sort(([, a], [, b]) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
   for (const [name, account] of entries) {
-    accountList.appendChild(createAccountCard(name, account));
+    // 行为回调注入（v2.8.0）：popup-render.js 为纯视图，操作函数由本文件传入
+    accountList.appendChild(createAccountCard(name, account, {
+      onEdit: handleEditAccount,
+      onSwitch: handleSwitchAccount,
+      onDelete: handleDeleteAccount
+    }));
   }
 }
 

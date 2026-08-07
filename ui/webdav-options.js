@@ -1,7 +1,8 @@
 /**
  * ui/webdav-options.js - 设置页 WebDAV 区块 UI 逻辑
  * 由 options.html 在 options.js 之前引入。
- * 依赖：lib/messaging.js（sendMessage）、options.js 的 showMsg。
+ * 依赖：lib/messaging.js（sendMessage）、ui/ui-helpers.js 的 showMsg（先于本文件引入）。
+ * 注意：本文件顶部在加载时执行 document.getElementById（页面脚本模式，script 在 body 底部，DOM 已就绪）。
  */
 
 // 默认 WebDAV 服务器（与 lib/webdav.js 的 DEFAULT_WEBDAV_URL 保持一致；URL 留空时使用）

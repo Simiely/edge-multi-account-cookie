@@ -3,9 +3,8 @@
  * 由 popup.html 在 popup.js 之前引入。
  *
  * 设计原则：本文件只包含"输入参数 → DOM 元素"的纯渲染函数，
- * 不引用 currentDomain/currentTabId 等弹窗共享状态——状态由 popup.js 编排时传入。
- * 依赖：popup.js 的全局 handleEditAccount/handleSwitchAccount/handleDeleteAccount
- *       （卡片回调闭包调用，函数声明提升，跨文件可用）。
+ * 不引用 currentDomain/currentTabId 等弹窗共享状态、不引用 popup.js 全局函数——
+ * 状态与行为均由调用方（popup.js）以参数/回调注入。
  */
 
 /**
@@ -26,9 +25,13 @@ function avatarColors(name) {
 }
 
 /**
- * 账号卡片。回调引用 popup.js 的全局操作函数（声明提升，跨文件可用）。
+ * 账号卡片。
+ * @param {string} name - 账号名
+ * @param {object} account - 账号数据（含 health/cookies/localStorage）
+ * @param {object} handlers - 行为回调 { onEdit(name), onSwitch(name, account), onDelete(name) }
+ *                            由 popup.js 注入（保持本文件纯视图，不依赖全局函数）
  */
-function createAccountCard(name, account) {
+function createAccountCard(name, account, handlers = {}) {
   const card = document.createElement('div');
   card.className = 'account-card';
 
@@ -79,7 +82,7 @@ function createAccountCard(name, account) {
   editBtn.title = '重命名';
   editBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    handleEditAccount(name);
+    if (handlers.onEdit) handlers.onEdit(name);
   });
   actions.appendChild(editBtn);
 
@@ -89,7 +92,7 @@ function createAccountCard(name, account) {
   switchBtn.title = '切换到该账号';
   switchBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    handleSwitchAccount(name, account);
+    if (handlers.onSwitch) handlers.onSwitch(name, account);
   });
   actions.appendChild(switchBtn);
 
@@ -99,14 +102,14 @@ function createAccountCard(name, account) {
   deleteBtn.title = '删除该账号';
   deleteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    handleDeleteAccount(name);
+    if (handlers.onDelete) handlers.onDelete(name);
   });
   actions.appendChild(deleteBtn);
 
   card.appendChild(actions);
 
   card.addEventListener('click', () => {
-    handleSwitchAccount(name, account);
+    if (handlers.onSwitch) handlers.onSwitch(name, account);
   });
 
   return card;

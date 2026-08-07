@@ -8,6 +8,7 @@
 - **行为一致性**：右键菜单切换账号后 fire-and-forget 更新健康标记（与 popup 一致：ok 标绿、其他清红点）——此前菜单切换不更新 health，同一账号两种入口状态不一致
 - **文档沉淀**：AGENTS.md 修正过时信息（双轨说明：popup 直调是刻意设计，勿改回 SW 消息路由；坑 17 改为"禁止按 name 去重 cookie"）；DEVELOPMENT.md 新增"主线逻辑关键点依据"（权限三层防线 / 4KB 明文存储 / 域+host-only 并存 / popup 直调 / 先清后写 / Bearer 探测，均附官方或社区一手来源）
 - **冒烟测试**：background 装配（15 action 无死残留）+ 菜单切换端到端 health 更新 + probeSession Bearer 探测 + WebDAV 内容感知/智能合并回归全过
+- **UI 层解耦（第二轮调研后补充）**：`showMsg` 下沉至新增 `ui/ui-helpers.js`（options.js 与 webdav-options.js 共用，消除跨文件全局函数依赖）；`createAccountCard` 行为改为回调注入（`{onEdit,onSwitch,onDelete}`，popup-render.js 彻底参数驱动、可独立测试）；AGENTS.md 记录 UI 分层约定（页面级总指挥 + ui/* 纯视图）
 
 ## v2.7.5（当前版本）
 
