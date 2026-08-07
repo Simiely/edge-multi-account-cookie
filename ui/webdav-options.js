@@ -114,12 +114,19 @@ function collectWebdavConfig() {
 
 async function handleWebdavTest() {
   const cfg = collectWebdavConfig();
-  // URL 可留空（自动使用默认服务器），仅账号密码必填
-  if (!cfg.user || !cfg.pass) {
-    showMsg(webdavStatus, '请填写用户名与密码', 'error');
-    return;
+  // 用户名/密码留空时：若已保存过配置则交由 SW 复用已存凭据，否则报错
+  if (!cfg.user && !cfg.pass) {
+    const opts = await sendMessage('options.get');
+    const saved = opts && opts.webdav;
+    if (!saved || !saved.user) {
+      showMsg(webdavStatus, '请填写用户名与密码', 'error');
+      return;
+    }
+    // 已保存配置 → 需解锁主密钥才能解密已存密码
+    if (!(await ensureMasterKeyUnlocked())) return;
+  } else {
+    if (!(await ensureWebdavPermission(normalizeWebdavUrl(cfg.url)))) return;
   }
-  if (!(await ensureWebdavPermission(normalizeWebdavUrl(cfg.url)))) return;
   btnWebdavTest.disabled = true;
   btnWebdavTest.textContent = '测试中...';
   try {

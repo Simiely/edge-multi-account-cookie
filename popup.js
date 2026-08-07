@@ -9,8 +9,8 @@ let unlocked = false;
 
 const $ = (id) => document.getElementById(id);
 const inputName = $('inputName');
-const inputGroup = $('inputGroup');
 const btnSave = $('btnSave');
+const btnSaveConfirm = $('btnSaveConfirm');
 const btnRefresh = $('btnRefresh');
 const btnOptions = $('btnOptions');
 const btnLoginNew = $('btnLoginNew');
@@ -22,9 +22,6 @@ const lockOverlay = $('lockOverlay');
 const lockInput = $('lockInput');
 const btnUnlock = $('btnUnlock');
 const lockMsg = $('lockMsg');
-
-// 分组折叠状态（会话内记忆）
-const collapsedGroups = new Set();
 
 document.addEventListener('DOMContentLoaded', async () => {
   bindEvents();
@@ -139,7 +136,7 @@ async function requestHostPermission() {
 // ============================================================
 //  账号列表
 // ============================================================
-// 纯渲染函数（createGroupHeader/createAccountCard/showStatus）
+// 纯渲染函数（createAccountCard/showStatus）
 // 已拆至 ui/popup-render.js —— 本文件只保留依赖共享状态的编排逻辑。
 
 async function renderAccountList() {
@@ -162,23 +159,11 @@ async function renderAccountList() {
   emptyState.style.display = 'none';
   sectionTitle.textContent = `已保存的账号（${entries.length}）`;
 
-  // 稳定排序：group 升序 → updatedAt 降序
-  entries.sort(([, a], [, b]) => {
-    const ga = (a.group || '').localeCompare(b.group || '');
-    if (ga !== 0) return ga;
-    return (b.updatedAt || 0) - (a.updatedAt || 0);
-  });
+  // 稳定排序：updatedAt 降序（最近保存/更新的排前面）
+  entries.sort(([, a], [, b]) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
-  let currentGroup = null;
   for (const [name, account] of entries) {
-    const group = account.group || '';
-    if (group !== currentGroup) {
-      currentGroup = group;
-      accountList.appendChild(createGroupHeader(group, collapsedGroups));
-      if (collapsedGroups.has(group)) continue;
-    }
-
-    accountList.appendChild(createAccountCard(name, account, group));
+    accountList.appendChild(createAccountCard(name, account));
   }
 }
 
@@ -187,15 +172,13 @@ async function renderAccountList() {
 // ============================================================
 
 function bindEvents() {
-  // 保存：点击图标展开输入面板（B v2 交互：默认收起，按需展开）
+  // 保存：点击图标展开输入面板（默认收起，按需展开）
   btnSave.addEventListener('click', toggleSavePanel);
   btnSave.addEventListener('keydown', (e) => { if (e.key === 'Enter') toggleSavePanel(); });
   inputName.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleSaveAccount();
   });
-  inputGroup.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleSaveAccount();
-  });
+  btnSaveConfirm.addEventListener('click', handleSaveAccount);
   btnRefresh.addEventListener('click', async () => {
     await initCurrentTab();
     await renderAccountList();
@@ -292,7 +275,6 @@ async function handleSaveAccount() {
   setSaveBusy(true);
 
   try {
-    const group = inputGroup.value.trim();
     // popup 直调（修复：SW 上下文 cookies.getAll 读不到 cookie）：
     // 在 popup 上下文读 cookie（activeTab + 持久授权均可用）+ 抓 localStorage + 落库
     const rawCookies = await getCookies(currentDomain);
@@ -304,7 +286,7 @@ async function handleSaveAccount() {
     if (currentTabId > 0) {
       try { lsData = await getTabLocalStorage(currentTabId); } catch (e) { /* ignore */ }
     }
-    await saveAccount(currentDomain, name, deduped, lsData, group);
+    await saveAccount(currentDomain, name, deduped, lsData, '');
 
     if (rawCookies.length === 0) {
       showStatus(statusBar, `⚠️ 已保存「${name}」但没有读取到任何 Cookie。可能缺少主机权限，请点击「授权访问此网站」`, 'error');
@@ -322,7 +304,6 @@ async function handleSaveAccount() {
       setTimeout(() => showStatus(statusBar, warnings[0], 'warning', 6000), 2600);
     }
     inputName.value = '';
-    inputGroup.value = '';
     setSavePanel(false); // 保存成功收起面板
     await renderAccountList();
   } catch (e) {
@@ -392,24 +373,11 @@ async function handleEditAccount(name) {
   if (!account) return;
 
   const newName = prompt('重命名账号（留空则保持不变）：', name);
-  let finalName = name;
   if (newName !== null && newName.trim() && newName.trim() !== name) {
     const renamed = await renameAccount(currentDomain, name, newName.trim()).catch(() => false);
     if (renamed) {
-      finalName = newName.trim();
       await renderAccountList();
     }
-  }
-
-  const newGroup = prompt('设置分组（可输入新分组，留空清除）：', account.group || '');
-  if (newGroup !== null) {
-    const data = await loadRawData();
-    if (data.accounts[currentDomain] && data.accounts[currentDomain][finalName]) {
-      data.accounts[currentDomain][finalName].group = newGroup.trim();
-      data.accounts[currentDomain][finalName].updatedAt = Date.now();
-      await saveRawData(data);
-    }
-    await renderAccountList();
   }
 }
 

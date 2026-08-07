@@ -164,6 +164,14 @@ edge-multi-account-cookie/
 
 **TL;DR**：`chrome.alarms.create('session-health-check', {delayInMinutes: 24*60, periodInMinutes: 24*60})` 后台每日遍历账号 `probeSession` 更新 health。**坑**：SW 上下文 fetch 跨域仅对已授权（host_permissions）域名有效，未授权域名探测失败返回 unknown，不误报；体检失败只 log 不弹错。
 
+### 31. 移除分组功能（v2.7.0）
+
+**TL;DR**：分组（group）功能移除——用户不需要。删除面广：popup.html（inputGroup 元素 + .group-header/.group-tag CSS）、popup.js（inputGroup 引用、collapsedGroups、renderAccountList 分组排序/折叠、handleSaveAccount 传 group、handleEditAccount 分组 prompt）、ui/popup-render.js（GROUP_COLORS/avatarColors(group)/createGroupHeader/createAccountCard group 参数）、handlers/account.js（account.updateGroup action）、_locales（accountGroup/labelGroup 文案）。**保留**：lib/storage.js saveAccount 的 group 参数（调用方传 ''，旧数据兼容不破坏）。头像颜色改为按账号名哈希取色（AVATAR_PALETTE）。教训：删功能要从 UI → handlers → i18n 全链路 grep，storage 字段保守保留避免迁移风险。
+
+### 32. WebDAV 测试连接复用已保存凭据（v2.7.0）
+
+**TL;DR**：设置页保存 WebDAV 配置后密码框留空（placeholder"已保存"），再点「连接测试」前端校验 `if (!cfg.pass)` 直接报"请填写用户名与密码"——无法测试。**修复**：① SW 端 `webdav.test` 用户名/密码任一为空时自动 `getWebdavConfigDecrypted()` 复用已存凭据；② 前端 `handleWebdavTest` 检测到已保存配置且凭据留空时先 `ensureMasterKeyUnlocked()`（解密已存密码需要 MK）再调 SW。**坑**：复用已存密码必须走 SW 解密（getWebdavConfigDecrypted），前端拿不到明文；有密码锁时需先解锁 MK。
+
 ## 构建 & 发布
 
 - 打包 ZIP：Python 脚本（排除 .gitignore/CODE_REVIEW.md/key.pem/REFACTOR_*.md，剔除 .git 目录）

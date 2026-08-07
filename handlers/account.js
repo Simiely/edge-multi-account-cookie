@@ -54,16 +54,6 @@ const ACCOUNT_ACTIONS = {
     return { ok: true };
   },
 
-  'account.updateGroup': async (payload) => {
-    const { domain, name, group } = payload;
-    const data = await loadRawData();
-    if (!data.accounts[domain] || !data.accounts[domain][name]) throw new Error('账号不存在');
-    data.accounts[domain][name].group = group || '';
-    data.accounts[domain][name].updatedAt = Date.now();
-    await saveRawData(data);
-    return { ok: true };
-  },
-
   'account.updateLocalStorage': async (payload) => {
     const { domain, name, tabId } = payload;
     const ls = await getTabLocalStorage(tabId);

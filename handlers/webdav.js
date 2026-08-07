@@ -7,7 +7,16 @@ const WEBDAV_ACTIONS = {
   'webdav.test': async (payload) => {
     // URL 留空 → 默认服务器；无协议 → 自动补 http://
     const url = normalizeWebdavUrl(payload.url);
-    const { user, pass } = payload;
+    let { user, pass } = payload;
+    // 用户名/密码留空 → 复用已保存配置（已保存过时，密码框留空即可测试）
+    if (!user || !pass) {
+      const saved = await getWebdavConfigDecrypted();
+      if (saved) {
+        user = user || saved.user;
+        pass = pass || saved.pass;
+      }
+    }
+    if (!user || !pass) throw new Error('请填写用户名与密码');
     if (!isValidWebdavUrl(url)) throw new Error('URL 格式不正确（需 http/https）');
     return webdavTest({ url, user, pass });
   },
