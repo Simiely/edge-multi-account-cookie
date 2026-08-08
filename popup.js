@@ -1,6 +1,7 @@
 /**
  * Cookie Switcher - Popup Script
- * 全部操作经 lib/messaging.js 走 Service Worker（权限集中、WebDAV 前置）。
+ * Cookie 读写在 popup 上下文执行（SW 读不到 cookie + 权限请求需用户手势）；
+ * settings / webdav / backup 与切换经 lib/messaging.js 走 Service Worker。
  */
 
 let currentDomain = '';
@@ -18,7 +19,6 @@ const statusBar = $('statusBar');
 const accountList = $('accountList');
 const emptyState = $('emptyState');
 const sectionTitle = $('sectionTitle');
-const healthLegend = $('healthLegend');
 const lockOverlay = $('lockOverlay');
 const lockInput = $('lockInput');
 const btnUnlock = $('btnUnlock');
@@ -194,7 +194,6 @@ async function renderAccountList() {
   if (!currentDomain) {
     emptyState.style.display = 'block';
     sectionTitle.textContent = '已保存的账号';
-    healthLegend.style.display = 'none';
     return;
   }
 
@@ -204,13 +203,11 @@ async function renderAccountList() {
   if (entries.length === 0) {
     emptyState.style.display = 'block';
     sectionTitle.textContent = '已保存的账号';
-    healthLegend.style.display = 'none';
     return;
   }
 
   emptyState.style.display = 'none';
   sectionTitle.textContent = `已保存的账号（${entries.length}）`;
-  healthLegend.style.display = 'flex';
 
   // 稳定排序：updatedAt 降序（最近保存/更新的排前面）
   entries.sort(([, a], [, b]) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -272,10 +269,11 @@ async function ensureWebdavConfigured() {
 }
 
 /**
- * v2.9.0：一键同步 = 先拉远端最新合并进本地 → 再上传合并后的全量（双向收敛，无损）。
+ * 同步 = 先拉远端最新合并进本地 → 再上传合并后的全量（双向收敛，无损）。
  */
 async function handleWebdavSync() {
   const btn = document.getElementById('btnWebdavSync');
+  const syncLabel = btn.querySelector('span'); // 按钮内的文字 <span>同步</span>（保留 SVG 图标）
   try {
     if (!(await ensureWebdavConfigured())) return;
     const mk = await sendMessage('masterkey.available');
@@ -284,7 +282,9 @@ async function handleWebdavSync() {
       return;
     }
     btn.disabled = true;
-    btn.textContent = '⏳ 同步中...';
+    // 仅更新文字，保留 SVG 图标与「同步中…」加载反馈
+    if (syncLabel) syncLabel.textContent = '⏳ 同步中...';
+    else btn.textContent = '⏳ 同步中...';
     const r = await sendMessage('webdav.sync');
     const parts = [];
     if (r.pulled) {
@@ -305,7 +305,9 @@ async function handleWebdavSync() {
     showStatus(statusBar, `同步失败：${e.message}`, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = '🔄 一键同步';
+    // 复位为「同步」，不再变成「一键同步」；SVG 图标保持不动
+    if (syncLabel) syncLabel.textContent = '同步';
+    else btn.textContent = '同步';
   }
 }
 
@@ -360,50 +362,24 @@ async function handleSaveAccount() {
 
 async function handleSwitchAccount(name, account) {
   showStatus(statusBar, `⏳ 正在切换到「${name}」...`, 'success', 0);
-
   try {
-    // popup 直调（修复 SW 读不到 cookie）：清旧 + 写新 + localStorage，都在 popup 上下文
-    const r = await applyCookies(currentDomain, account.cookies || []);
-    if (Object.keys(account.localStorage || {}).length > 0 && currentTabId > 0) {
-      await setTabLocalStorage(currentTabId, account.localStorage);
-    }
-
+    // 主线经消息层 account.switch 收口（与 webdav/backup/settings 一致），
+    // SW 内复用共享 switchAccount 核心（写 cookie + localStorage + reload + 后台探测）
+    const r = await sendMessage('account.switch', { domain: currentDomain, name, tabId: currentTabId });
     // 简化提示：成功/失败两态，不展示过期/回滚等细节（用户要求）
-    if (r.failed.length > 0 || r.snapshotFailed) {
+    if (r && (r.failed.length > 0 || r.snapshotFailed)) {
       showStatus(statusBar, `「${name}」使用失败`, 'error');
       return;
     }
-
     showStatus(statusBar, `✓ 已切换到「${name}」`, 'success');
-    // v2.7.3 修复：先 reload 让登录立即生效（与 v2.6.0 行为一致），探测放后台异步执行，绝不阻塞刷新
-    if (currentTabId > 0) await chrome.tabs.reload(currentTabId);
     // v2.8.0：切换成功的账号即当前使用（reload 后 cookie 已生效）
     currentAccountName = name;
     await refreshIdentity(true, 'Cookie Switcher');
-    await renderAccountList(); // 刷新健康徽标 + 当前账号高亮
-
-    // 后台异步探测（fire-and-forget，不 await、不阻塞切换与刷新）
-    probeSessionHealthAsync(currentDomain, name, account.cookies || []);
+    await renderAccountList(); // 刷新当前账号高亮
   } catch (e) {
-    showStatus(statusBar, `「${name}」使用失败`, 'error');
+    // P2：带上真实错误原因，便于排查（如主密钥未解锁 / 权限失败）
+    showStatus(statusBar, `「${name}」使用失败：${e && e.message ? e.message : e}`, 'error');
   }
-}
-
-/**
- * 后台异步会话健康探测（v2.7.3）：切换/刷新完成后再探测，绝不阻塞登录。
- * 探测内部自带超时，失败静默降级。
- */
-function probeSessionHealthAsync(domain, name, cookies) {
-  try {
-    Promise.resolve(probeSession(domain, cookies)).then((probe) => {
-      if (!probe || !probe.status) return;
-      if (probe.status === 'ok') {
-        return updateAccountHealth(domain, name, 'ok');
-      }
-      // expired/unknown：切换成功说明 cookie 被接受，重置 unknown 清除旧红点
-      return updateAccountHealth(domain, name, 'unknown');
-    }).catch(() => { /* 探测失败不影响切换 */ });
-  } catch (e) { /* ignore */ }
 }
 
 async function handleDeleteAccount(name) {
