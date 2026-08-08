@@ -1,6 +1,16 @@
-node_modules/
+# 构建 / 测试临时文件
+sim_test.cjs
+pack_zip.py
+*.pyc
+__pycache__/
+
+# 私钥（固定扩展 ID 用，不提交）
+key.pem
+
+# 系统 / 编辑器
 .DS_Store
-*.zip
-*.crx
-*.pem
-CODE_REVIEW.md
+Thumbs.db
+*.log
+
+# 工作区元数据（不属扩展本身）
+.workbuddy/
