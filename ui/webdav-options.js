@@ -176,7 +176,7 @@ async function handleWebdavSync() {
     showMsg(webdavStatus, `同步失败：${e.message}`, 'error');
   } finally {
     btnWebdavSync.disabled = false;
-    btnWebdavSync.textContent = '🔄 一键同步';
+    btnWebdavSync.textContent = '🔄 同步';
   }
 }
 
