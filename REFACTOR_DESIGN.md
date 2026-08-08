@@ -1,8 +1,10 @@
 # 主线 / 支线逻辑详细重构设计
 
-> 配套文档：`REFACTOR_PLAN.md`（总体路线）· 本文（逐链路详细设计）
+> 配套文档：本文为逐链路详细设计
 > 调研方式：基于 Chrome/Edge 官方 API 文档 + 同类项目（bilibili-history-wxt、CleanSlateTab、time-tracker）架构 + MV3 最佳实践搜索
 > 日期：2026-08-04 | 目标版本：v2.5.0
+
+> **⚠️ 状态说明（2026-08-08）**：本文是 **2026-08-04 的设计提案（目标 v2.5.0）**，部分设计已随实现演进，**不再与当前代码一一对应**。当前权威文档为 `AGENTS.md` 与 `DEVELOPMENT.md`。主要偏差见各节内联 `[实现注]`：① cookie value 最终实现为**明文**存储（非 AES-GCM，见 DEVELOPMENT §26，4KB 上限所限）；② 会话存活探测能力已在 **v2.10.x 移除**（见 DEVELOPMENT §29/§30）；③ cookie 操作最终保留 **popup 直调（双轨）**，未全部迁入 SW 消息层（见 AGENTS 坑 25）。
 
 ---
 
@@ -51,6 +53,8 @@ background.js 消息路由（sender 校验 + 白名单 action 分发表）
    ├─ webdav.*  → lib/webdav.js（Phase 3.5）
    └─ backup.*  → lib/backup.js
 ```
+
+> **[实现注] 架构落地偏差**：上图把 `cookie.*` 路由到 SW 侧 `lib/cookies.js`，但最终实现采用 **双轨**——cookie 读/写/切换**保留在 popup 直调 lib**（Edge SW 的 `chrome.cookies.getAll` 读不到 cookie，见 DEVELOPMENT §25/AGENTS 坑 25），只有 WebDAV/备份/设置/密码锁等无 cookie 依赖的操作走 SW 消息层（`sendMessage` → handlers/*）。因此 cookie 操作**没有**对应的 `cookie.*` SW action。
 
 **关键实现点**：
 - 监听器 `return true` 保活异步通道（当前代码没有——潜在 bug）
@@ -167,12 +171,14 @@ async function applyCookies(domain, cookies, opts = {}) {
 - **删除 `pin_raw`**（Phase 1 已定）
 - 导出/导入仍用锁派生密钥（用户输入密码），与 MK 解耦
 
+> **[实现注] cookie value 最终实现为明文存储，非 AES-GCM 加密**：AES-GCM 使 cookie value 膨胀约 1.35 倍，原始值 >3072B 加密后超浏览器 4096B 上限 → `chrome.cookies.set` 失败 → 切换丢失登录态。故 v2.6.0 改为**明文存储**（与浏览器自身 Cookies 数据库明文一致），备份/导出仍整包加密。详见 DEVELOPMENT.md §26。文中数据模型示例的 `"value": "<AES-GCM 密文 base64>"` 与最终实现不符。
+
 ### 3.2 密码锁（支线）
 
 | 项 | 现状 | 目标 |
 |----|------|------|
 | 验证 | SHA-256 快哈希 | PBKDF2(salt, 600k) 慢哈希 + 旧格式兼容迁移 |
-| 防爆破 | 无 | failCount ≥5 锁 60s，指数递增（5→60s，10→600s，15→3600s） |
+| 防爆破 | 无 | failCount ≥5 才锁（阈值内只累计次数），首次锁 60s，之后每满 5 次失败锁定时长翻倍（5→60s，10→120s，15→240s） |
 | 弹窗 | 无验证 | popup 锁屏遮罩（Phase 1） |
 | 凭据 | `pin_raw` 明文 | 删除；导出改输入密码 |
 
