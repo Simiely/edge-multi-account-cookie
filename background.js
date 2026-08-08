@@ -3,10 +3,9 @@
  *
  * 职责：
  *  - importScripts 引入 lib/（顺序敏感：crypto → storage → cookies → security → backup → webdav → messaging）
- *  - importScripts 引入 handlers/（tab → account → settings → backup → webdav），合并注册消息路由
+ *  - importScripts 引入 handlers/（account → settings → backup → webdav），合并注册消息路由
  *  - 右键菜单：清除站点 Cookie + 动态二级"切换到此站点账号"
  *  - 快捷键 / 安装生命周期
- *  - chrome.alarms 定时 WebDAV 备份（onInstalled 重建）
  *
  * MV3 约束：监听器必须顶层同步注册；异步响应 return true。
  */
@@ -16,12 +15,12 @@ importScripts(
   'lib/crypto.js',
   'lib/storage.js',
   'lib/cookies.js',
-  'lib/health.js',
   'lib/security.js',
   'lib/backup.js',
   'lib/webdav.js',
   'lib/messaging.js',
-  // action 处理器（按域拆分；account/tab 已随 popup 直调迁移移除，v2.8.0）
+  // action 处理器（按域拆分；account 为 v2.9.x 重构重新引入的切换 action）
+  'handlers/account.js',
   'handlers/settings.js',
   'handlers/backup.js',
   'handlers/webdav.js'
@@ -37,40 +36,6 @@ const MENU_SWITCH_PREFIX = 'switch-account-';
 
 function log(level, msg) {
   console[level](`[CookieSwitcher] ${msg}`);
-}
-
-// ============================================================
-//  每日会话体检
-// ============================================================
-
-/**
- * 每日会话体检（v2.7.0）：遍历所有账号，探测 Keycloak 类会话存活状态并更新 health。
- * 注意：SW 上下文 fetch 跨域需 host_permissions；未授权域名探测失败返回 unknown，
- *       不误报为失效（与 popup 直调探测共用 lib/health.js 逻辑）。
- */
-async function runSessionHealthCheck() {
-  try {
-    const data = await loadRawData();
-    const accounts = data.accounts || {};
-    let checked = 0, ok = 0, expired = 0, unknown = 0;
-    for (const domain of Object.keys(accounts)) {
-      for (const name of Object.keys(accounts[domain])) {
-        const entry = accounts[domain][name];
-        if (!entry || !Array.isArray(entry.cookies) || entry.cookies.length === 0) continue;
-        const probe = await probeSession(domain, entry.cookies);
-        if (probe && probe.status) {
-          await updateAccountHealth(domain, name, probe.status);
-          checked++;
-          if (probe.status === 'ok') ok++;
-          else if (probe.status === 'expired') expired++;
-          else unknown++;
-        }
-      }
-    }
-    log('log', `会话体检完成：检查 ${checked}（有效 ${ok} / 失效 ${expired} / 未知 ${unknown}）`);
-  } catch (e) {
-    log('warn', `会话体检失败：${e.message}`);
-  }
 }
 
 // ============================================================
@@ -108,13 +73,10 @@ function rebuildContextMenus() {
           contexts: ['page']
         });
         for (const name of names.slice(0, 8)) { // 最多 8 个，避免菜单过长
-          // 健康标记（v2.7.0）：失效账号标题加 ⚠
-          const acc = accounts[name] || {};
-          const title = acc.health === 'expired' ? `⚠️ ${name}（会话失效）` : name;
           chrome.contextMenus.create({
             id: MENU_SWITCH_PREFIX + name,
             parentId: MENU_ROOT,
-            title,
+            title: name,
             contexts: ['page']
           });
         }
@@ -131,8 +93,6 @@ function rebuildContextMenus() {
 
 chrome.runtime.onInstalled.addListener((details) => {
   rebuildContextMenus();
-  // 每日会话体检（v2.7.0）：24h 后首检，之后每 24h 一次
-  chrome.alarms.create('session-health-check', { delayInMinutes: 24 * 60, periodInMinutes: 24 * 60 });
   // 清理已被移除功能的遗留数据（白名单）
   chrome.storage.local.remove('cookie_switcher_whitelist').catch(() => {});
   if (details.reason === 'install') {
@@ -171,21 +131,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       const accounts = await getDomainAccounts(domain);
       const account = accounts[name];
       if (!account) return;
-      const mk = await getMasterKey();
-      if (!mk) { log('warn', '切换失败：主密钥不可用，请先在弹窗解锁'); return; }
-      const result = await applyCookies(domain, account.cookies || []);
-      if (Object.keys(account.localStorage || {}).length > 0) {
-        await setTabLocalStorage(tab.id, account.localStorage);
-      }
-      await chrome.tabs.reload(tab.id);
-      log('log', `已切换到「${name}」：${JSON.stringify(result)}`);
-      // v2.8.0：切换成功后后台更新健康标记（与 popup 一致：ok 标绿，其他清红点；fire-and-forget 不阻塞）
-      probeSession(domain, account.cookies || []).then((probe) => {
-        if (probe && probe.status) {
-          return updateAccountHealth(domain, name, probe.status === 'ok' ? 'ok' : 'unknown');
-        }
-        return null;
-      }).catch(() => {});
+      // 共享切换核心（与 popup 经消息层调用的同一实现）：写 cookie + localStorage + reload
+      await switchAccount(domain, name, account, { tabId: tab.id, reload: true });
+      log('log', `已切换到「${name}」`);
     } catch (e) {
       log('error', `切换失败：${e.message}`);
     }
@@ -201,20 +149,11 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 // ============================================================
-//  定时备份
-// ============================================================
-
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'session-health-check') {
-    runSessionHealthCheck();
-  }
-});
-
-// ============================================================
 //  消息路由（合并各 handlers 的 action 表）
 // ============================================================
 
 registerMessageHandler({
+  ...ACCOUNT_ACTIONS,
   ...SETTINGS_ACTIONS,
   ...BACKUP_ACTIONS,
   ...WEBDAV_ACTIONS
