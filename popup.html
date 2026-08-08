@@ -41,16 +41,24 @@ body {
 .icon-btn:hover { color: var(--text); background: var(--surface-2); }
 
 /* Identity anchor */
-.identity { padding: 14px 14px 12px; text-align: center; border-bottom: 0.5px solid var(--border); }
+.identity { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 12px; border-bottom: 0.5px solid var(--border); }
+.identity-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
 .identity-avatar {
-  width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 8px;
+  width: 52px; height: 52px; border-radius: 50%;
   background: var(--primary); color: var(--primary-text);
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px; font-weight: 500;
+  font-size: 18px; font-weight: 500; flex-shrink: 0;
 }
+.identity-text { text-align: left; flex: 1; min-width: 0; }
 .identity-domain { font-size: 13px; font-weight: 500; color: var(--text); word-break: break-all; }
 .identity-sub { font-size: 11px; color: var(--primary-200); margin-top: 2px; }
 .identity-sub.muted { color: var(--text-3); }
+.identity-actions { display: flex; flex-direction: column; gap: 6px; }
+.identity-actions .ib-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 6px 8px; border-radius: 8px; color: var(--text-3); }
+.identity-actions .ib-item:hover { background: var(--surface-2); color: var(--text); }
+.identity-actions .ib-item svg { display: block; }
+.identity-actions .ib-item span { font-size: 10px; }
+.identity-actions .ib-item.primary { color: var(--primary); }
 
 /* Save panel（常驻顶部，v2.8.0） */
 .save-panel { padding: 10px 14px 6px; border-bottom: 0.5px solid var(--border); }
@@ -60,26 +68,18 @@ body {
   border-radius: 8px; color: var(--text); font-size: 13px; outline: none; margin-bottom: 8px;
 }
 .save-panel input:focus { border-color: var(--primary); }
-.save-panel button {
-  width: 100%; padding: 9px; border: none; border-radius: 8px;
+.save-panel .save-actions { display: flex; gap: 8px; }
+.save-panel .save-actions button {
+  flex: 1; width: auto; padding: 9px; border: none; border-radius: 8px;
   background: var(--primary); color: var(--primary-text);
-  font-size: 13px; font-weight: 500; cursor: pointer; margin-bottom: 2px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
 }
-.save-panel button:hover { background: var(--primary-hover); }
-.save-panel button:disabled { opacity: 0.5; cursor: default; }
+.save-panel .save-actions button:hover { background: var(--primary-hover); }
+.save-panel .save-actions button:disabled { opacity: 0.5; cursor: default; }
 
 /* Account list */
 .list-wrap { padding: 10px 14px; }
 .list-title { font-size: 10px; font-weight: 500; color: var(--text-3); margin-bottom: 6px; letter-spacing: 0.4px; }
-.health-legend {
-  display: flex; align-items: center; gap: 12px;
-  font-size: 10px; color: var(--text-3); margin-bottom: 6px;
-}
-.legend-item { display: inline-flex; align-items: center; gap: 4px; }
-.legend-item .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-.legend-item .dot.ok { background: var(--success); }
-.legend-item .dot.expired { background: var(--danger); }
-.legend-item .dot.unknown { background: var(--border); }
 .account-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
 .account-list::-webkit-scrollbar { width: 4px; }
 .account-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -99,12 +99,6 @@ body {
 }
 .account-card .info { flex: 1; min-width: 0; }
 .account-card .info .name { font-size: 12px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.health-badge {
-  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-  margin-left: 6px; vertical-align: middle; flex-shrink: 0;
-}
-.health-badge.ok { background: var(--success); box-shadow: 0 0 4px rgba(93,202,165,0.5); }
-.health-badge.expired { background: var(--danger); box-shadow: 0 0 4px rgba(240,149,149,0.5); }
 .account-card .info .meta-line { font-size: 10px; color: var(--text-3); margin-top: 1px; }
 .account-card .actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
 .account-card:hover .actions { opacity: 1; }
@@ -137,13 +131,18 @@ body {
 /* Action area */
 .action-area { padding: 8px 14px 12px; border-top: 0.5px solid var(--border); }
 .btn-login {
-  width: 100%; padding: 10px; border: 1px solid var(--primary-hover); border-radius: var(--radius);
+  width: auto; padding: 10px; border: 1px solid var(--primary-hover); border-radius: var(--radius);
   background: rgba(255,146,146,0.10); color: var(--primary-200);
   font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;
 }
 .btn-login:hover { background: rgba(255,146,146,0.18); }
 .btn-login:active { transform: scale(0.98); }
 .btn-login:disabled { opacity: 0.5; cursor: default; }
+.save-panel .save-actions .btn-login {
+  background: rgba(255,146,146,0.10); color: var(--primary-200);
+  border: 1px solid var(--primary-hover); font-size: 12px;
+}
+.save-panel .save-actions .btn-login:hover { background: rgba(255,146,146,0.18); }
 
 .icon-bar { display: flex; justify-content: space-around; align-items: center; margin-top: 10px; }
 .icon-bar .ib-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 6px 10px; border-radius: 8px; }
@@ -198,16 +197,33 @@ body {
 
 <!-- Identity anchor -->
 <div class="identity" id="identityBlock">
-  <div class="identity-avatar" id="identityAvatar">?</div>
-  <div class="identity-domain" id="domainText">正在获取...</div>
-  <div class="identity-sub" id="identitySub"></div>
+  <div class="identity-main">
+    <div class="identity-avatar" id="identityAvatar">?</div>
+    <div class="identity-text">
+      <div class="identity-domain" id="domainText">正在获取...</div>
+      <div class="identity-sub" id="identitySub"></div>
+    </div>
+  </div>
+  <div class="identity-actions">
+    <div class="ib-item primary" id="btnWebdavSync" title="同步 WebDAV（先拉后传，自动取最新）" role="button" tabindex="0">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8 a5 5 0 1 1 -1.5 -3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M13 2.5 V5 H10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>同步</span>
+    </div>
+    <div class="ib-item" id="btnRefresh" title="刷新当前站点" role="button" tabindex="0">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8 a5 5 0 1 1 -1.5 -3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M13 2.5 V5 H10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>刷新</span>
+    </div>
+  </div>
 </div>
 
-<!-- Save panel（常驻顶部：输入名称 + 保存按钮） -->
+<!-- Save panel（常驻顶部：输入名称 + 操作按钮） -->
 <div class="save-panel">
   <div class="save-title">保存当前账号</div>
   <input type="text" id="inputName" placeholder="输入名称保存当前账号" maxlength="30" />
-  <button id="btnSaveConfirm">保存账号</button>
+  <div class="save-actions">
+    <button class="btn-login" id="btnLoginNew">①登录新账号</button>
+    <button id="btnSaveConfirm">②保存新账号</button>
+  </div>
 </div>
 
 <!-- Status -->
@@ -219,11 +235,6 @@ body {
 <!-- Account list -->
 <div class="list-wrap">
   <div class="list-title" id="sectionTitle">已保存的账号</div>
-  <div class="health-legend" id="healthLegend">
-    <span class="legend-item"><span class="dot ok"></span>会话有效</span>
-    <span class="legend-item"><span class="dot expired"></span>会话失效</span>
-    <span class="legend-item"><span class="dot unknown"></span>未检测</span>
-  </div>
   <div class="account-list" id="accountList"></div>
   <div class="empty-state" id="emptyState" style="display:none;">
     <div class="icon">📂</div>
@@ -231,25 +242,10 @@ body {
   </div>
 </div>
 
-<!-- Action area -->
-<div class="action-area">
-  <button class="btn-login" id="btnLoginNew">登录新账号（清除当前 Cookie）</button>
-  <div class="icon-bar">
-    <div class="ib-item primary" id="btnWebdavSync" title="一键同步 WebDAV（先拉后传，自动取最新）" role="button" tabindex="0">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8 a5 5 0 1 1 -1.5 -3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M13 2.5 V5 H10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>同步</span>
-    </div>
-    <div class="ib-item" id="btnRefresh" title="刷新当前站点" role="button" tabindex="0">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8 a5 5 0 1 1 -1.5 -3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M13 2.5 V5 H10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>刷新</span>
-    </div>
-  </div>
-</div>
 
 <script src="lib/crypto.js"></script>
 <script src="lib/storage.js"></script>
 <script src="lib/cookies.js"></script>
-<script src="lib/health.js"></script>
 <script src="lib/security.js"></script>
 <script src="lib/messaging.js"></script>
 <script src="ui/popup-render.js"></script>
