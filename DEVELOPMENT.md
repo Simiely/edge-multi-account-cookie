@@ -5,7 +5,7 @@
 
 ## 项目概览
 
-Edge/Chrome MV3 扩展（v2.6.0），保存和切换多网站账号 Cookie。Cookie value 明文存储（与浏览器自身 Cookies 数据库一致）+ 密码锁（PBKDF2 + 防爆破）+ WebDAV 远程备份（整包加密），纯原生 JS 零依赖。设计原则：权限最小化、popup 直调 cookie 操作、消息层收口（WebDAV 前置）、杜绝供应链风险。
+Edge/Chrome MV3 扩展（v2.11.0），保存和切换多网站账号 Cookie。Cookie value 明文存储（与浏览器自身 Cookies 数据库一致）+ 密码锁（PBKDF2 + 防爆破）+ WebDAV 远程备份（整包加密），纯原生 JS 零依赖。设计原则：权限最小化、popup 直调 cookie 操作、消息层收口（WebDAV 前置）、杜绝供应链风险。
 
 ## 架构说明
 
@@ -22,8 +22,7 @@ edge-multi-account-cookie/
 │   ├── webdav.js        # WebDAV 协议客户端（SW 内执行，默认 URL + 逐级建目录）
 │   └── messaging.js     # 消息层（sendMessage + sender 校验 + action 分发）
 ├── handlers/            # SW action 处理器（按域拆分，background 只做装配）
-│   ├── tab.js           # 标签页 / 权限检测
-│   ├── account.js       # 账号 CRUD / 切换 / 清场
+│   ├── account.js       # 账号切换 account.switch（v2.9.x 重构：核心抽至 lib/cookies.switchAccount，popup 与右键菜单共用）
 │   ├── settings.js      # 设置 / 密码锁 / 主密钥
 │   ├── backup.js        # 本地备份（口令策略：有锁自动 / 无锁 NEED_PIN）
 │   └── webdav.js        # WebDAV 备份（URL 留空默认 + base64 认证）
@@ -156,13 +155,13 @@ edge-multi-account-cookie/
 
 **TL;DR**：`getCookies` 合并主域/父域/带点/不带点查询后，同名 cookie 可能多条（如 `.www.codebuddy.cn` 与 `www.codebuddy.cn` 各一套 KEYCLOAK_SESSION/AUTH_SESSION_ID/KEYCLOAK_IDENTITY，值不同）。保存时全量入库 → 切换时两套会话交叉写入 → Keycloak 校验失败 → "登录不了"（且无任何预警）。**修复：保存前 `dedupeCookies()` 按同名去重，保留 domain 带前导点的域 cookie；值不同则提示"疑似多套会话混存"。** 教训：cookie 快照类扩展必须做"保存时去重 + 切换前自检"，坏数据不能等到用户切换才暴露。
 
-### 29. 会话存活探测（v2.7.0）
+### 29. 会话存活探测（v2.7.0，该功能已在 v2.10.x 移除）
 
 **TL;DR**：cookie 快照的 token 未过期但服务端会话可能已被清理（如 Keycloak SSO 会话过期/账号登出），切换后无感知。**修复：新增 `lib/health.js` `probeSession()`——请求 `https://{domain}/auth/realms/{realm}/protocol/openid-connect/userinfo`（realm 从 cookie path `/auth/realms/{realm}/` 提取），200=ok / 401=expired / 其他=unknown**。注意四点：① 探测须在 popup 直调（同坑 25，SW 读不到 cookie）；② 无 host_permissions 时 fetch 会被 CORS 拦，**必须降级为 unknown 而非 expired**（否则误报失效）；③ 非 Keycloak 站点 realm 提取失败直接 unknown 跳过；④ **认证必须用 `Authorization: Bearer <KEYCLOAK_IDENTITY>`（OIDC 标准）而非 cookie**——cookie 方式在很多 realm 配置下恒定 401，会导致"能切换却提示失效"的误报（用户实测反馈）；无 KEYCLOAK_IDENTITY 时才退回 cookie 方式。
 
-### 33. 切换成功后不标红（v2.7.0 实测修正）
+### 33. 切换结果以用户可见为准（v2.7.0 实测修正，v2.10.x 简化）
 
-**TL;DR**：切换成功后探测 expired 仍把账号标红 → 用户实测"能真实切换却显示失效"。**修复：切换成功 = cookie 被服务端接受 → 探测 ok 才标绿，expired/unknown 一律重置 unknown（清除旧红点）**；expired 仅在**每日体检**（后台非交互场景）标红，且用户一旦切换成功红点即被清除。教训：交互场景（用户正在切换）以结果为准，非交互场景（后台体检）以探测为准，避免相互矛盾。
+**TL;DR**：旧版曾因切换后探测 expired 仍把账号标红，导致"能真实切换却显示失效"。**教训：交互场景（用户正在切换）以切换操作结果为准，不要再用独立探测结论覆盖用户可见状态。** v2.10.x 移除会话探测后，切换逻辑简化为「清→写→reload」，切换成功即视为成功，UI 不再依赖 health 绿点/红点。
 
 ### 34. 保存去重误删 host-only cookie（v2.7.2 P0 修复，登录失效根因）
 
@@ -176,9 +175,9 @@ edge-multi-account-cookie/
 
 **TL;DR**：旧 `webdavPull` 按文件名排序取最后一份（文件名 = push 时刻）。但**文件名可被拷贝/手动上传/同步客户端改名**——目录里可能混入"文件名新、数据旧"的备份（如手动传的 7/4 旧文件叫今天的名字），按文件名会选错。**修复：逐个下载所有备份，优先按文件内 `__meta.exportedAt`（v2.7.3 起的导出时间标记，明文在加密内容内，需 `parseBackup` 解密读取）判定新旧；旧格式无 meta 或解密失败回退 `parseBackupStamp`（文件名 UTC 时间戳，`Date.UTC` 解析与 `Date.now()` 同基准可比）；损坏文件跳过、认证失败（401/403）整体终止**。**坑**：① meta 在加密内容内，选文件就必须解密——把"选文件"逻辑放 `webdavPull(config)`（config 含 pass 仅内存），`parseBackup` 依赖 backup.js 需在其后加载（importScripts 顺序已满足）；② 文件名时间戳用 `toISOString()`（UTC），`__meta.exportedAt` 用 `Date.now()`（UTC 毫秒），两者同基准可直接比较，勿混入本地时区。
 
-### 30. 每日体检 alarm（v2.7.0）
+### 30. 每日体检 alarm（v2.7.0，v2.10.x 已移除）
 
-**TL;DR**：`chrome.alarms.create('session-health-check', {delayInMinutes: 24*60, periodInMinutes: 24*60})` 后台每日遍历账号 `probeSession` 更新 health。**坑**：SW 上下文 fetch 跨域仅对已授权（host_permissions）域名有效，未授权域名探测失败返回 unknown，不误报；体检失败只 log 不弹错。
+**TL;DR**：旧版 `chrome.alarms.create('session-health-check', {delayInMinutes: 24*60, periodInMinutes: 24*60})` 后台每日遍历账号 `probeSession` 更新 health。**该 alarm 与整套会话探测能力已在 v2.10.x 一并移除**（详见 §29）——当前版本无后台定时体检，也不维护 health 字段。保留此条仅为历史追溯。
 
 ### 31. 移除分组功能（v2.7.0）
 
@@ -190,7 +189,7 @@ edge-multi-account-cookie/
 
 ## 主线逻辑关键点依据（GitHub / 官方求证，2026-08-08）
 
-> 主线 = 保存账号 → 切换账号 → 会话健康。每个关键决策都有官方文档或社区一手实证，改动前先读这里。
+> 主线 = 保存账号 → 切换账号。每个关键决策都有官方文档或社区一手实证，改动前先读这里。
 
 | # | 关键点 | 依据 |
 |---|---|---|
@@ -199,13 +198,13 @@ edge-multi-account-cookie/
 | ③ | 域 cookie 与 host-only cookie 并存 | `domain=.a.com` 与 `domain=a.com` 是两个独立 cookie 条目（RFC 6265 host-only vs domain cookie；Chrome cookies API 文档）——v2.7.2 移除按 name 去重即因此 |
 | ④ | cookie 操作 popup 直调（双轨） | MV3 cookie 扩展主流做法就是 popup/页面上下文直调（CookieJar，dev.to 作者亲述）；**MV3 SW 的 fetch 默认不带 SameSite cookie**，`credentials:'include'` 也无效、恒定 401，移到页面/content script 上下文立刻正常（AI Karma Tracker，dev.to 踩坑实证）；tabwipe 纯 SW 架构可做 cookie 但事件驱动、无 popup 交互，场景不同 |
 | ⑤ | 切换"先清后写 + 快照回滚" | CookieJar 的 applyCookies 同模式（清空 → 写入 → 失败回滚） |
-| ⑥ | 探测用 Keycloak userinfo Bearer 认证 | Keycloak 官方文档：userinfo endpoint "is protected by a bearer token"（keycloak.org/securing-apps/oidc-layers）；社区实现全部 `Authorization: Bearer <access_token>`（Gamify-IT、skycloak 等）——v2.7.0 曾用 cookie 方式探测恒定 401 误报失效，改 Bearer 后正确 |
+| ⑥ | 探测用 Keycloak userinfo Bearer 认证（历史参考） | Keycloak 官方文档：userinfo endpoint "is protected by a bearer token"（keycloak.org/securing-apps/oidc-layers）；社区实现全部 `Authorization: Bearer <access_token>`（Gamify-IT、skycloak 等）——v2.7.0 曾用 cookie 方式探测恒定 401 误报失效，改 Bearer 后正确。**注：会话探测能力已在 v2.10.x 整体移除，此条仅作历史溯源，当前版本不做存活探测。** |
 
 **教训**：本插件"数据混乱 / 登录失效"的两大真实根因（v2.7.0 按 name 去重误删 host-only cookie；cookie 方式探测恒定 401 误报）都能在官方/社区资料中找到依据——改动前先求证，别凭直觉"修复"。
 
 ## 构建 & 发布
 
-- 打包 ZIP：Python 脚本（排除 .gitignore/CODE_REVIEW.md/key.pem/REFACTOR_*.md，剔除 .git 目录）
+- 打包 ZIP：Python 脚本（排除 sim_test.cjs、lib/health.js、临时脚本 pack_zip.py 与 .git 目录；key.pem 由 .gitignore 忽略）
 - 创建 Release：curl 方式（body 不要有中文）；上传 zip 到 releases assets
 - GitHub API 中文数据用 Python `ensure_ascii=False`
 
