@@ -27,7 +27,7 @@ function avatarColors(name) {
 /**
  * 账号卡片。
  * @param {string} name - 账号名
- * @param {object} account - 账号数据（含 health/cookies/localStorage）
+ * @param {object} account - 账号数据（含 cookies/localStorage）
  * @param {object} handlers - 行为回调 { onEdit(name), onSwitch(name, account), onDelete(name) }
  *                            由 popup.js 注入（保持本文件纯视图，不依赖全局函数）
  */
@@ -49,26 +49,12 @@ function createAccountCard(name, account, handlers = {}) {
   const nameEl = document.createElement('div');
   nameEl.className = 'name';
   nameEl.textContent = name;
-  // 健康徽标：expired 显示红点，ok 显示绿点
-  const health = account.health || 'unknown';
-  if (health === 'expired') {
-    const badge = document.createElement('span');
-    badge.className = 'health-badge expired';
-    badge.title = '会话已失效：服务端不再认可，建议重新登录保存';
-    nameEl.appendChild(badge);
-  } else if (health === 'ok') {
-    const badge = document.createElement('span');
-    badge.className = 'health-badge ok';
-    badge.title = `会话健康 · 最近验证 ${account.lastVerifiedAt ? new Date(account.lastVerifiedAt).toLocaleString('zh-CN', { hour12: false }) : '未知'}`;
-    nameEl.appendChild(badge);
-  }
   info.appendChild(nameEl);
 
   const meta = document.createElement('div');
   meta.className = 'meta-line';
   const cookieCount = (account.cookies || []).length;
   meta.textContent = `${cookieCount} 个 Cookie`;
-  if (health === 'expired') meta.textContent += ` · ⚠ 会话失效`;
   info.appendChild(meta);
 
   card.appendChild(info);
