@@ -56,10 +56,35 @@ const SETTINGS_ACTIONS = {
 
   // ---- 清空本地账号数据（保留密码锁 / WebDAV 配置）----
   'data.clearAll': async () => {
-    await chrome.storage.local.remove(STORAGE_KEY);
+    // v2.11.2 修复：清空改为「墓碑化全部账号」，而非物理删除整个数据对象。
+    // 原实现 chrome.storage.local.remove(STORAGE_KEY) 完全绕过墓碑机制，导致：
+    //   ① 远端有备份时，同步拉取会把账号全部"复活"回本地（清空被撤销，远端无从得知你清空了）；
+    //   ② 远端无备份时，同步会把空数据上传，远端备份被空覆盖 → 本地已清、远端也空 → 数据永久丢失。
+    // 墓碑化后：清空可跨设备传播（同步时墓碑上传，其他设备同样隐藏删除）；
+    // 本地墓碑 vs 远端旧账号（updatedAt < deletedAt）不会复活；导出/上传的是含墓碑的数据而非空。
+    const data = await loadRawData();
+    const now = Date.now();
+    const accounts = data.accounts || {};
+    let tombstoned = 0;
+    for (const domain of Object.keys(accounts)) {
+      for (const name of Object.keys(accounts[domain])) {
+        const entry = accounts[domain][name];
+        if (!entry) continue;
+        accounts[domain][name] = {
+          name: entry.name || name,
+          createdAt: entry.createdAt || now,
+          updatedAt: now,
+          deleted: true,
+          deletedAt: now
+        };
+        tombstoned++;
+      }
+    }
+    data.accounts = accounts;
+    await saveRawData(data);
     try {
       await chrome.storage.session.remove(MK_SESSION_KEY);
     } catch (e) { /* ignore */ }
-    return { ok: true };
+    return { ok: true, tombstoned };
   }
 };
