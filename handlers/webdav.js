@@ -55,6 +55,17 @@ const WEBDAV_ACTIONS = {
 
     // 第二步：导出合并后的本地全量并上传（含刚拉取的最新账号）
     const data = await exportData(cfg.pass);
+    // v2.11.2 兜底：合并后本地完全为空（无活跃账号也无墓碑）时跳过上传，
+    // 防止异常路径（数据被外部物理清空 / 手动删库）把空备份传上去覆盖远端。
+    // 注意：正常"清空"走 data.clearAll 墓碑化路径，本地会保留墓碑 → 不触发此兜底 → 墓碑正常传播。
+    const rawData = await loadRawData();
+    const totalEntries = Object.keys(rawData.accounts || {}).reduce(
+      (n, d) => n + Object.keys(rawData.accounts[d] || {}).length, 0
+    );
+    if (totalEntries === 0) {
+      result.pushed = null; // 本地无任何数据（含墓碑）：不上传，避免清空远端备份
+      return result;
+    }
     const filename = await webdavPush(cfg, JSON.stringify(data));
     const stored = await getWebdavConfig();
     if (stored) {
