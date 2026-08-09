@@ -7,8 +7,9 @@
 最近两个版本因违反以下红线各出过 P0/P1 事故（用户实测反馈），**改代码前必须逐条对照**：
 
 1. **cookie 读写/切换/清除只能在 popup 页面上下文直调，禁止进入 SW 消息路由**（Edge/Chrome MV3 SW 中 `cookies.getAll` 读不到浏览器主会话 cookie，官方标记 *intentionally restricted*）。v2.9.0 把切换收口进 SW → 清除旧 cookie 失效 → 新旧会话混存 → 账号"很快过期"（坑 20 / DEVELOPMENT.md §37）。
-2. **删除/清空语义必须走墓碑机制，禁止物理删库**。v2.11.2 前 `data.clearAll` 直接 `storage.local.remove` → 清空被远端拉取复活 / 空数据上传覆盖远端备份（DEVELOPMENT.md §38）。
-3. **改动后必须跑 mock 回归**：`applyCookies` 双保险清除（已知列表 remove + 快照补充）、墓碑传播、同步空数据兜底，均有 mock 用例可复跑（见开发环境一节）；`node --check` 全部 JS 是底线。
+2. **删除走墓碑机制，禁止物理删库；清空本地 ≠ 删除，仅本机物理清空**。删除/清空语义必须区隔（DEVELOPMENT.md §38）：`deleteAccount` 软删除（墓碑）跨设备传播，禁止 `storage.local.remove` 物理删账号；`data.clearAll` 仅清空本机（物理删库、无墓碑），用户意图是从网络端恢复——切勿把清空传播成"删除所有设备"（v2.11.2 曾误墓碑化清空，v2.11.4 修正）。
+3. **墓碑物理清理必须晚于上传（v2.11.3 P0）**：`purgeOldTombstones` 只能在 `webdav.sync` 上传成功后调用，禁止在 `importData`/合并阶段提前 purge——墓碑先写入远端权威备份，再清本地，否则远端删除标记丢失、其他设备删除"复活"（DEVELOPMENT.md §39，mock 用例 7 回归）。
+4. **改动后必须跑 mock 回归**：`applyCookies` 双保险清除（已知列表 remove + 快照补充）、墓碑传播（`node scripts/tombstone-chain-test.cjs` 10 用例含 TTL 过期同步不复活、清空≠删除区隔）、同步空数据兜底，均有 mock 用例可复跑（见开发环境一节）；`node --check` 全部 JS 是底线。
 
 ## 技术栈
 
@@ -81,5 +82,5 @@
 
 - 无构建；打包 ZIP 用 Python zipfile（显式正斜杠条目 + 排除 .git/.gitignore；key.pem 由 .gitignore 忽略）⚠️ 旧说明"排除 sim_test.cjs、lib/health.js"已过时（两文件均已删除）
 - 发布：创建 Release（curl body 别带中文）+ 上传 zip；GitHub API 中文用 Python ensure_ascii=False
-- 冒烟测试：node 22 可直接 eval lib/*.js（Web Crypto 原生支持），mock chrome.storage + chrome.cookies 后验证加密/迁移/密码锁/applyCookies 双保险清除/墓碑传播/同步空数据兜底逻辑（本仓库无独立测试文件，测试脚本为走查时临时生成，模式见 DEVELOPMENT §37/§38 验证描述）
+- 冒烟测试：`node scripts/tombstone-chain-test.cjs`（v2.11.4 起固化，10 用例 34 断言：逐账号删除传播/清空本地=物理空无墓碑/清空后同步从远端恢复/本地物理空跳过上传/TTL purge/复活规则/先拉后传收敛/**墓碑过期再同步远端标记不丢（核心回归）**/清空+远端无备份跳过上传/双方墓碑合并）——node 22 直接 eval lib/*.js + handlers/webdav.js（Web Crypto 原生支持），mock chrome.storage + 内存 WebDAV 文件系统；其余（加密/迁移/密码锁/applyCookies 双保险清除）沿用走查时临时生成模式，见 DEVELOPMENT §37/§38/§39 验证描述
 - 详细开发记录见 DEVELOPMENT.md；版本历史见 CHANGELOG.md；重构设计提案见 REFACTOR_DESIGN.md（部分设计已随实现演进，以本文与 DEVELOPMENT.md 为准）
