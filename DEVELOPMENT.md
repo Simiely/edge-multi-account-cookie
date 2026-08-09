@@ -5,7 +5,7 @@
 
 ## 项目概览
 
-Edge/Chrome MV3 扩展（v2.11.0），保存和切换多网站账号 Cookie。Cookie value 明文存储（与浏览器自身 Cookies 数据库一致）+ 密码锁（PBKDF2 + 防爆破）+ WebDAV 远程备份（整包加密），纯原生 JS 零依赖。设计原则：权限最小化、popup 直调 cookie 操作、消息层收口（WebDAV 前置）、杜绝供应链风险。
+Edge/Chrome MV3 扩展（v2.11.2），保存和切换多网站账号 Cookie。Cookie value 明文存储（与浏览器自身 Cookies 数据库一致）+ 密码锁（PBKDF2 + 防爆破）+ WebDAV 远程备份（整包加密），纯原生 JS 零依赖。设计原则：权限最小化、popup 直调 cookie 操作（**切换/清除严禁进 SW**，见 §37）、消息层收口（WebDAV 前置）、杜绝供应链风险。
 
 ## 架构说明
 
@@ -121,7 +121,7 @@ edge-multi-account-cookie/
 
 ### 20. 数据版本迁移
 
-**TL;DR**：v2 的 `DATA_VERSION=2` 无迁移逻辑。**storage.js 现为 v3**，读取时惰性迁移（明文 value → MK 加密），失败降级返回 + `migrationPending` 标记下次重试，不阻塞使用。
+**TL;DR**：v2 的 `DATA_VERSION=2` 无迁移逻辑。**storage.js 现为 v3**，读取时惰性迁移，失败降级返回 + `migrationPending` 标记下次重试，不阻塞使用。⚠️ **迁移方向已变更（本条描述 v2.5.0 的"明文 → MK 加密"，已被 v2.6.0 明文存储决策取代，正确做法见 §26）**：实际 v3 迁移为补全 `partitionKey/storeId` 字段 + 兼容旧 `enc:` 数据（`migratePlainValues` 自动解为明文），**cookie value 最终为明文存储**（§26，4KB 上限所限），不再是 MK 加密。
 
 ### 21. 备份口令策略（v2.5.0）
 
@@ -157,7 +157,7 @@ edge-multi-account-cookie/
 
 ### 29. 会话存活探测（v2.7.0，该功能已在 v2.10.x 移除）
 
-**TL;DR**：cookie 快照的 token 未过期但服务端会话可能已被清理（如 Keycloak SSO 会话过期/账号登出），切换后无感知。**修复：新增 `lib/health.js` `probeSession()`——请求 `https://{domain}/auth/realms/{realm}/protocol/openid-connect/userinfo`（realm 从 cookie path `/auth/realms/{realm}/` 提取），200=ok / 401=expired / 其他=unknown**。注意四点：① 探测须在 popup 直调（同坑 25，SW 读不到 cookie）；② 无 host_permissions 时 fetch 会被 CORS 拦，**必须降级为 unknown 而非 expired**（否则误报失效）；③ 非 Keycloak 站点 realm 提取失败直接 unknown 跳过；④ **认证必须用 `Authorization: Bearer <KEYCLOAK_IDENTITY>`（OIDC 标准）而非 cookie**——cookie 方式在很多 realm 配置下恒定 401，会导致"能切换却提示失效"的误报（用户实测反馈）；无 KEYCLOAK_IDENTITY 时才退回 cookie 方式。
+**TL;DR**：cookie 快照的 token 未过期但服务端会话可能已被清理（如 Keycloak SSO 会话过期/账号登出），切换后无感知。**修复：新增 `lib/health.js` `probeSession()`——请求 `https://{domain}/auth/realms/{realm}/protocol/openid-connect/userinfo`（realm 从 cookie path `/auth/realms/{realm}/` 提取），200=ok / 401=expired / 其他=unknown**。注意四点：① 探测须在 popup 直调（同 §25，SW 读不到 cookie）；② 无 host_permissions 时 fetch 会被 CORS 拦，**必须降级为 unknown 而非 expired**（否则误报失效）；③ 非 Keycloak 站点 realm 提取失败直接 unknown 跳过；④ **认证必须用 `Authorization: Bearer <KEYCLOAK_IDENTITY>`（OIDC 标准）而非 cookie**——cookie 方式在很多 realm 配置下恒定 401，会导致"能切换却提示失效"的误报（用户实测反馈）；无 KEYCLOAK_IDENTITY 时才退回 cookie 方式。
 
 ### 33. 切换结果以用户可见为准（v2.7.0 实测修正，v2.10.x 简化）
 
@@ -170,6 +170,14 @@ edge-multi-account-cookie/
 ### 36. 删除同步墓碑机制（v2.10.0）
 
 **TL;DR**：快照式同步中"删除"无法传播——本地删除账号后，远端旧备份还有该账号，下次同步又被 smart 合并拉回来（"远端有本地无"无法区分"你删了"与"从未存在/别人新增"）。**修复（业界标准 tombstone，参考 Storyie 本地优先同步 / DataStax grace period / Figma TTL）**：① `deleteAccount` 改为**软删除**——保留骨架 `{deleted:true, deletedAt}` 清空 cookies/localStorage，删除成为可观察可同步的变化；② `importData` smart 合并加墓碑分支：远端活跃 vs 本地墓碑 → `inc.updatedAt > existing.deletedAt` 才**复活**否则保持；远端墓碑 vs 本地活跃 → 本地 `updatedAt > 墓碑时间` 保留否则**删除传播**；远端墓碑 vs 本地无 → 幂等导入；③ `purgeOldTombstones` TTL 30 天（保存/同步后清理，防无限累积）；④ **所有读取点过滤**：`getDomainAccounts` 统一过滤墓碑（账号列表/统计/菜单/体检自动受益），`loadRawDataStat` 单独过滤，体检靠"墓碑无 cookies 自动跳过"。**坑**：墓碑三配套缺一不可（合并规则 + TTL + 全读取点过滤）；`saveAccount` 整体替换墓碑=复活（无残留）；`renameAccount` 保留 deleted 状态；墓碑 `deletedAt=0`（异常）按保守复活处理；墓碑极小时备份不膨胀；UI 删除提示"将在下次同步时同步到其他设备"。
+
+### 37. 切换必须 popup 直调（v2.11.1 P0 修复，切换失效根因）
+
+**TL;DR**：**Edge/Chrome 的 MV3 Service Worker 中 `chrome.cookies.getAll` 读不到浏览器主会话的 cookie**（CDP 实测：同一 host 授权下 SW 返回 0 个、popup 页面返回 12 个；Chromium 官方将 SW 的 cookie 访问标记为 *intentionally restricted*）。v2.9.0"共享切换核心"重构把切换经 `account.switch` 消息层收口到 **SW 执行 `applyCookies`**，导致：快照 `getCookies` 返回空 → **清除旧 cookie 阶段失效（清除 0 个）→ 新旧会话混存 → 服务端（如 Keycloak/SSO）校验失败 → 用户实测"新录入账号很快过期/需重新登录"**（v2.2 切换在 popup 页面直调，一直正常）。**修复**：① `popup.js handleSwitchAccount` 直接调共享核心 `switchAccount()`（popup 上下文 getAll 可靠），不再走消息层；② `applyCookies` 清除**双保险**——先按待写入已知列表逐个 `remove`（remove 只需 url+name，不依赖 getAll，SW/popup 双上下文都可靠）+ 快照补充移除（getAll 可靠时全量清干净）；③ 删除 `handlers/account.js` 与 `account.switch` action，SW 消息路由不再承载任何 cookie 写操作；④ 右键菜单移除"切换到此站点账号"（contextMenus.onClicked 只能在 SW 响应，SW cookie 写入不可靠），仅保留"清除 Cookie"（已知列表 + 全量双保险）。**教训**：cookie 类扩展的 cookie 操作**唯一归属 popup/页面上下文**，SW 只做 storage/WebDAV/事件监听；违反该原则的"重构"（为代码复用收口消息层）会引入难以察觉的 P0 回归——**改 cookie 链路前先 grep 确认没有 SW 执行路径**。
+
+### 38. 清空数据必须墓碑化（v2.11.2 P1 修复，防清空传空）
+
+**TL;DR**：设置页「清空本地账号数据」原实现 `chrome.storage.local.remove(STORAGE_KEY)` **物理删库、零墓碑**，完全绕过墓碑机制（§36）→ ①远端有备份时：同步拉取把账号全部"复活"回本地（清空被撤销，远端无从得知你清空了）；②远端无备份时：同步把**空数据上传**，远端备份被空覆盖 → 本地已清 + 远端也空 → **账号数据永久丢失**。**修复**：① `data.clearAll` 改为**墓碑化全部账号**（`deleted:true + deletedAt:now`，清空 cookies、保留骨架，与逐账号删除语义一致）→ 清空可跨设备传播（同步时墓碑上传）、远端旧账号（updatedAt < deletedAt）不复活、导出/上传的是含墓碑的数据而非空；② `webdav.sync` 上传前兜底：合并后本地条目（含墓碑）为 0 时**跳过上传**（`pushed=null`），杜绝"把空传上去"；③ popup/设置页同步提示处理 `pushed=null`（显示"本地无数据，未上传"，不再 TypeError 崩溃）。**坑**：墓碑化后本地非空（有墓碑）→ 不触发兜底 → 正常上传传播；只有"物理空"（异常/外部删库）才触发跳过；墓碑 TTL 30 天后 purge 变物理空 → 此时同步同样被兜底拦截，安全。
 
 ### 35. WebDAV 选"最新备份"不能按文件名（v2.7.5）
 
@@ -204,7 +212,7 @@ edge-multi-account-cookie/
 
 ## 构建 & 发布
 
-- 打包 ZIP：Python 脚本（排除 sim_test.cjs、lib/health.js、临时脚本 pack_zip.py 与 .git 目录；key.pem 由 .gitignore 忽略）
+- 打包 ZIP：Python 脚本（排除临时脚本 pack_zip.py 与 .git 目录；key.pem 由 .gitignore 忽略）⚠️ 旧说明"排除 sim_test.cjs、lib/health.js"已过时（v2.10.x 已删除 health.js）
 - 创建 Release：curl 方式（body 不要有中文）；上传 zip 到 releases assets
 - GitHub API 中文数据用 Python `ensure_ascii=False`
 
