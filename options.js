@@ -325,7 +325,8 @@ async function handleClearData() {
     btn.disabled = true;
     btn.textContent = '清空中...';
     await sendMessage('data.clearAll');
-    showMsg(dataStatus, '✅ 已清空本地账号数据（密码锁 / WebDAV 配置保留）', 'success');
+    // v2.11.2：清空 = 墓碑化全部账号（可跨设备同步传播），非物理删除
+    showMsg(dataStatus, '✅ 已清空本地账号数据（将在下次同步时同步到其他设备；密码锁 / WebDAV 配置保留）', 'success');
     await loadSettings(); // 刷新状态栏（账号数归零）
   } catch (e) {
     showMsg(dataStatus, `清空失败：${e.message}`, 'error');
