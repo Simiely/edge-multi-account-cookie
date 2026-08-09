@@ -167,10 +167,17 @@ async function handleWebdavSync() {
       if (p.tombstoned) acts.push(`删除同步 ${p.tombstoned}`);
       if (p.skipped) acts.push(`保留 ${p.skipped} 个本地更新`);
       parts.push(`拉取「${p.filename}」${acts.length ? acts.join('、') : '无变化'}`);
-    } else {
+    } else if (r.pushed) {
       parts.push('远端无备份，已创建首份');
+    } else {
+      // v2.11.2 兜底：本地无任何数据（含墓碑）时跳过上传
+      parts.push('远端无备份');
     }
-    parts.push(`上传「${r.pushed.filename}」`);
+    if (r.pushed) {
+      parts.push(`上传「${r.pushed.filename}」`);
+    } else {
+      parts.push('本地无数据，未上传');
+    }
     showMsg(webdavStatus, `✅ 同步完成：${parts.join('；')}`, 'success');
   } catch (e) {
     showMsg(webdavStatus, `同步失败：${e.message}`, 'error');
