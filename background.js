@@ -19,8 +19,8 @@ importScripts(
   'lib/backup.js',
   'lib/webdav.js',
   'lib/messaging.js',
-  // action 处理器（按域拆分；account 为 v2.9.x 重构重新引入的切换 action）
-  'handlers/account.js',
+  // action 处理器（按域拆分；v2.11.1 起移除 account.js——
+  // cookie 切换改回 popup 直调，不再走 SW 消息路由，见 DEVELOPMENT.md §25）
   'handlers/settings.js',
   'handlers/backup.js',
   'handlers/webdav.js'
@@ -32,7 +32,6 @@ importScripts(
 
 const MENU_ROOT = 'switch-root';
 const MENU_CLEAR = 'switch-clear-cookies';
-const MENU_SWITCH_PREFIX = 'switch-account-';
 
 function log(level, msg) {
   console[level](`[CookieSwitcher] ${msg}`);
@@ -56,31 +55,9 @@ function rebuildContextMenus() {
         title: '清除此站点 Cookie 并重新登录',
         contexts: ['page']
       });
-      // 动态子菜单：当前站点已保存账号
-      chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-        const tab = tabs[0];
-        if (!tab || !tab.url) return;
-        const domain = extractDomain(tab.url);
-        if (!domain) return;
-        const accounts = await getDomainAccounts(domain);
-        const names = Object.keys(accounts);
-        if (names.length === 0) return;
-        chrome.contextMenus.create({
-          id: MENU_SWITCH_PREFIX + 'header',
-          parentId: MENU_ROOT,
-          title: '切换到此站点账号',
-          enabled: false,
-          contexts: ['page']
-        });
-        for (const name of names.slice(0, 8)) { // 最多 8 个，避免菜单过长
-          chrome.contextMenus.create({
-            id: MENU_SWITCH_PREFIX + name,
-            parentId: MENU_ROOT,
-            title: name,
-            contexts: ['page']
-          });
-        }
-      });
+      // v2.11.1：移除"切换到此站点账号"子菜单——contextMenus.onClicked 只能在 SW 响应，
+      // 而 SW 上下文 cookies API 不可靠（getAll 读不到 cookie），切换会清不掉旧 cookie
+      // 导致新旧会话混存、登录态失效。切换统一走 popup 直调（DEVELOPMENT.md §25 原则）。
     });
   } catch (e) {
     log('warn', 'contextMenus API 不可用：' + e.message);
@@ -111,8 +88,22 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
   if (info.menuItemId === MENU_CLEAR) {
     try {
+      // v2.11.1：清除双保险——已保存账号的已知 cookie 逐个移除（remove 只需 url+name，
+      // 不依赖 getAll，SW 上下文可靠）+ 全量清除（getAll 尽力而为，能清多少清多少）
+      const accounts = await getDomainAccounts(domain);
+      const seen = new Set();
+      for (const name of Object.keys(accounts)) {
+        const entry = accounts[name];
+        if (!entry || !Array.isArray(entry.cookies)) continue;
+        for (const c of entry.cookies) {
+          const k = `${c.name}|${c.domain}|${c.path}`;
+          if (seen.has(k)) continue;
+          seen.add(k);
+          try { await removeCookie(c); } catch (e) { /* ignore */ }
+        }
+      }
       const result = await clearDomainCookies(domain);
-      // 数据一致性保护：cookie 清除存在失败时不刷 localStorage
+      // 数据一致性保护：cookie 清除存在失败时不刷 localStorage（防半退出）
       if (result.failedCookies.length === 0) {
         await clearTabLocalStorage(tab.id);
       }
@@ -122,21 +113,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       log('error', `清除失败：${e.message}`);
     }
     return;
-  }
-
-  if (typeof info.menuItemId === 'string' && info.menuItemId.startsWith(MENU_SWITCH_PREFIX)) {
-    const name = info.menuItemId.slice(MENU_SWITCH_PREFIX.length);
-    if (name === 'header') return;
-    try {
-      const accounts = await getDomainAccounts(domain);
-      const account = accounts[name];
-      if (!account) return;
-      // 共享切换核心（与 popup 经消息层调用的同一实现）：写 cookie + localStorage + reload
-      await switchAccount(domain, name, account, { tabId: tab.id, reload: true });
-      log('log', `已切换到「${name}」`);
-    } catch (e) {
-      log('error', `切换失败：${e.message}`);
-    }
   }
 });
 
@@ -153,7 +129,6 @@ chrome.commands.onCommand.addListener((command) => {
 // ============================================================
 
 registerMessageHandler({
-  ...ACCOUNT_ACTIONS,
   ...SETTINGS_ACTIONS,
   ...BACKUP_ACTIONS,
   ...WEBDAV_ACTIONS
