@@ -312,7 +312,7 @@ async function handleImport(e) {
 
 async function handleClearData() {
   // 第一步确认
-  const first = confirm('确定要清空扩展本地保存的全部账号数据吗？\n\n清空后所有已保存的账号 Cookie 快照将被删除，需重新登录保存。');
+  const first = confirm('确定要清空扩展本地保存的全部账号数据吗？\n\n清空仅影响本机（不删除远端备份、不会同步删除其他设备）。\n若已配置 WebDAV，下次同步可从远端备份恢复。');
   if (!first) return;
   // 第二步确认（输入确认词，防误触）
   const word = prompt('此操作不可恢复。\n请输入「清空」以确认执行：');
@@ -325,8 +325,8 @@ async function handleClearData() {
     btn.disabled = true;
     btn.textContent = '清空中...';
     await sendMessage('data.clearAll');
-    // v2.11.2：清空 = 墓碑化全部账号（可跨设备同步传播），非物理删除
-    showMsg(dataStatus, '✅ 已清空本地账号数据（将在下次同步时同步到其他设备；密码锁 / WebDAV 配置保留）', 'success');
+    // v2.11.4：清空 = 仅本机物理清空（不传播删除；如已配置 WebDAV 下次同步可从远端恢复）
+    showMsg(dataStatus, '✅ 已清空本地账号数据（仅本机；已配置 WebDAV 时下次同步可从远端恢复；密码锁 / WebDAV 配置保留）', 'success');
     await loadSettings(); // 刷新状态栏（账号数归零）
   } catch (e) {
     showMsg(dataStatus, `清空失败：${e.message}`, 'error');
