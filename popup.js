@@ -381,6 +381,15 @@ async function handleSwitchAccount(name, account) {
       showStatus(statusBar, `「${name}」使用失败`, 'error');
       return;
     }
+    // v2.11.6：跳过了已过期 cookie（Chrome set 过期 cookie = 删除，写回会导致登录态丢失）
+    // 过期部分无法恢复登录态，如实提示用户重新登录保存该账号
+    if (r && r.expired > 0) {
+      showStatus(statusBar, `✓ 已切换到「${name}」（⚠ ${r.expired} 个 Cookie 已过期未写入，若无法登录请重新登录并保存该账号）`, 'success', 6000);
+      currentAccountName = name;
+      await refreshIdentity(true, 'Cookie Switcher');
+      await renderAccountList();
+      return;
+    }
     showStatus(statusBar, `✓ 已切换到「${name}」`, 'success');
     // v2.8.0：切换成功的账号即当前使用（reload 后 cookie 已生效）
     currentAccountName = name;

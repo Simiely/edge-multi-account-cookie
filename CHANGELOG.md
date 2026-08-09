@@ -2,6 +2,43 @@
 
 > 版本号与 `manifest.json` 同步，每次发布 bump。详细改动背景见 `DEVELOPMENT.md`「关键问题与方案」与 `AGENTS.md`。
 
+## v2.11.7 (2026-08-09)
+
+### 变更（移除「下载原始数据」功能）
+
+- **移除 v2.11.5 引入的「下载原始数据（明文）」功能**：设置页按钮、`backup.exportRaw` action、`lib/backup.js` 的 `exportRawData()` / `hasLegacyEncValues()` / `buildDataStats()` 全部删除，测试脚本 `scripts/raw-export-test.cjs` 一并移除。该功能是排查「同步数据变化」的临时诊断工具，诊断已完成；明文导出含完整 Cookie 值，长期保留存在泄露风险，故移除。
+- **保留 v2.11.6 的切换修复**（P0：恢复过期 cookie 过滤，未过期 cookie 全部写入、过期 cookie 跳过避免 set 即删/整批回滚）——本版即「修复 + 去掉多余功能」的干净版本。
+- 加密备份（导出/导入/WebDAV 同步）与本地存储逻辑不受影响。
+
+### 验证
+
+- 全部 JS `node --check` 通过；`scripts/tombstone-chain-test.cjs` 34 断言无回归；`scripts/expired-filter-test.cjs` 12 断言无回归。
+
+## v2.11.6 (2026-08-09)
+
+### 修复（P0 切换后无法登录：恢复过期 cookie 过滤）
+
+- **根因**：v2.6.0 移除了 applyCookies 的过期过滤（v2.5.0 曾有过：`expirationDate <= now` 跳过），导致切换时把**已过期**的 cookie 原样写入浏览器。Chrome/Edge `cookies.set` 对「过期 expirationDate」视为**删除操作**（set 即删）：① set 失败计入 failed → 触发整批回滚（切换"假失败"，页面停留旧账号）；② 或立即删除刚写入的 cookie → 登录态 cookie（如 Keycloak 的 KEYCLOAK_IDENTITY，TTL 10h~1d）丢失 → **切换后无法登录**。
+- **实测数据**（用户 001 原始数据 159 个 Cookie 中 30 个已过期，遍布全部主要账号）：codebuddy.cn / workbuddy.cn 的 Keycloak 会话 cookie、huaban 的 auth_key 均为短 TTL，保存几天后切换必然命中。
+- **修复**：`lib/cookies.js` applyCookies 恢复过期过滤——`expirationDate <= now` 的 cookie 跳过写入（不 set、不参与已知列表清除、不触发回滚），返回值新增 `expired` 计数；`popup.js` 切换后若 `expired > 0` 提示"⚠ N 个 Cookie 已过期未写入，若无法登录请重新登录并保存该账号"。
+- **语义说明**：过期 cookie 本就无法建立登录态（服务端不认），跳过是正确行为；账号的未过期 cookie 照常写入。用户需对过期账号重新登录并保存覆盖（与 README FAQ 建议一致）。
+
+### 验证
+
+- 新增 mock 用例（过期 cookie 跳过、不 set、不触发回滚、expired 计数正确）；全部 JS `node --check` 通过；`scripts/tombstone-chain-test.cjs` 34 断言无回归；`scripts/raw-export-test.cjs` 14 断言无回归。
+
+## v2.11.5 (2026-08-09)
+
+### 新增（诊断：下载原始数据）
+
+- **「下载原始数据」按钮（设置页 → 本地备份卡片）**：导出**未加密的完整原始 JSON**（含每个账号的 cookies / localStorage / createdAt / updatedAt / 墓碑标记，以及导出时间戳、账号指纹、规模统计），供用户排查"同步后数据出现奇怪变化"——同步前、同步后各下载一份，用 diff 工具对比即可精确定位变化（账号增减、墓碑传播、Cookie 字段变化、时间戳覆盖等）。
+- **实现**：`lib/backup.js` 新增 `exportRawData()`（先幂等迁移历史 `enc:` 遗留数据，MK 不可用时提示先解锁密码锁；附带 `__meta.stats` 统计：域名数 / 活跃账号 / 墓碑数 / Cookie 总数）；`handlers/backup.js` 注册 `backup.exportRaw` action；`options.js` 新增 `handleExportRaw()`（下载前强提醒明文含 Cookie 凭据）。文件名 `cookie-switcher-raw-YYYY-MM-DD.json`，与加密备份文件名区分。
+- **不影响**：加密备份（`backup.export`）与 WebDAV 同步逻辑零改动；本地存储仍为明文 v3 结构，无迁移、无数据变更。
+
+### 验证
+
+- 全部 JS `node --check` 通过；`scripts/tombstone-chain-test.cjs` mock 回归 10 用例 34 断言 PASS（新增功能不触碰同步/墓碑链路，无回归）。
+
 ## v2.11.4 (2026-08-09)
 
 ### 修复（语义修正：清空本地 ≠ 删除，禁止传播）

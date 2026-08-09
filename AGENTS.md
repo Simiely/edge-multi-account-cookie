@@ -82,5 +82,5 @@
 
 - 无构建；打包 ZIP 用 Python zipfile（显式正斜杠条目 + 排除 .git/.gitignore；key.pem 由 .gitignore 忽略）⚠️ 旧说明"排除 sim_test.cjs、lib/health.js"已过时（两文件均已删除）
 - 发布：创建 Release（curl body 别带中文）+ 上传 zip；GitHub API 中文用 Python ensure_ascii=False
-- 冒烟测试：`node scripts/tombstone-chain-test.cjs`（v2.11.4 起固化，10 用例 34 断言：逐账号删除传播/清空本地=物理空无墓碑/清空后同步从远端恢复/本地物理空跳过上传/TTL purge/复活规则/先拉后传收敛/**墓碑过期再同步远端标记不丢（核心回归）**/清空+远端无备份跳过上传/双方墓碑合并）——node 22 直接 eval lib/*.js + handlers/webdav.js（Web Crypto 原生支持），mock chrome.storage + 内存 WebDAV 文件系统；其余（加密/迁移/密码锁/applyCookies 双保险清除）沿用走查时临时生成模式，见 DEVELOPMENT §37/§38/§39 验证描述
+- 冒烟测试：`node scripts/tombstone-chain-test.cjs`（v2.11.4 起固化，10 用例 34 断言：逐账号删除传播/清空本地=物理空无墓碑/清空后同步从远端恢复/本地物理空跳过上传/TTL purge/复活规则/先拉后传收敛/**墓碑过期再同步远端标记不丢（核心回归）**/清空+远端无备份跳过上传/双方墓碑合并）+ `node scripts/expired-filter-test.cjs`（v2.11.6 起固化，4 用例 12 断言：**切换时过期 cookie 跳过写入/不 set/不触发回滚/expired 计数/解密失败仍跳过**，对应 DEVELOPMENT §40 P0）——node 22 直接 eval lib/*.js + handlers/webdav.js（Web Crypto 原生支持），mock chrome.storage + 内存 WebDAV 文件系统；其余（加密/迁移/密码锁/applyCookies 双保险清除）沿用走查时临时生成模式，见 DEVELOPMENT §37/§38/§39 验证描述
 - 详细开发记录见 DEVELOPMENT.md；版本历史见 CHANGELOG.md；重构设计提案见 REFACTOR_DESIGN.md（部分设计已随实现演进，以本文与 DEVELOPMENT.md 为准）

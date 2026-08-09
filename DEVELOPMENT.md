@@ -187,6 +187,14 @@ edge-multi-account-cookie/
 
 **TL;DR**：墓碑 TTL 30 天的物理清理（`purgeOldTombstones`）原实现在 `importData` 尾部触发（本地导入 + WebDAV 拉取合并共用该函数）——**时机早于 `webdav.sync` 的第二步上传**。导致 P0 数据安全问题：本地墓碑 TTL 过期后，同步时 `importData` 合并把过期墓碑物理删掉 → 第二步 `exportData` 导出内容**不含墓碑** → `webdavPush` 上传覆盖远端备份 → **远端备份丢失删除标记** → 其他设备（本地有旧账号、从未同步过）拉取时看不到墓碑 → **已删除账号"复活"**（mock 回归用例 7 复现：31 天前墓碑 + 再次同步 → 远端墓碑消失 → 设备 C 的 alice 复活）。**根因**：`purgeOldTombstones` 的调用点违背 §36"墓碑须存活足够久（传播删除）后被物理移除"——它在"传播到远端"之前就删了墓碑。**修复**：① `importData` **不再 purge**（合并/导入时墓碑一律保留，传播优先，本地导入的墓碑同样保留防复活）；② `webdav.sync` **上传成功后**才调用 `purgeOldTombstones` 清理本地过期墓碑——墓碑先写入远端权威备份，确认传播后再清本地。**设计确认**：快照式同步下远端备份是删除标记的权威副本，墓碑必须持续存在（每次同步拉取会重新导入墓碑，本地按 TTL 清理、远端永久保留——每条 ~100B，数据量极小，换取"删除永不复活"）。**教训**：墓碑机制的"清理时机"与"传播时机"必须严格满足**先传播后清理**；任何在合并/导入阶段提前 purge 的优化都是 P0 数据安全隐患——改墓碑链路后必须跑 mock 回归用例 7（墓碑过期 + 再次同步 → 远端标记不丢 + 第三方设备不复活）。
 
+### 40. 切换写回过期 cookie 导致"无法登录"（v2.11.6 P0 修复，恢复过期过滤）
+
+**TL;DR**：v2.6.0 曾移除 `applyCookies` 的过期过滤（v2.5.0 有：`expirationDate <= now` 跳过），导致切换时把**已过期**的 cookie 原样写入浏览器。**Chrome/Edge `cookies.set` 对「过期 expirationDate」视为删除操作（set 即删）**：① 写回过期 cookie 触发 set 失败 → 计入 `failed` → `applyCookies` 整批回滚（切换"假失败"，页面停在旧账号）；② 或立即删除刚写入的 cookie → 登录态 cookie（Keycloak `KEYCLOAK_IDENTITY`/`AUTH_SESSION_ID` 等短 TTL 会话凭据）丢失 → **切换后无法登录**。**实测**：用户 001 原始数据 159 个 Cookie 中 30 个已过期（codebuddy/workbuddy 的 Keycloak 会话、huaban auth_key 均短 TTL），保存数天后切换必然命中。**修复**：`applyCookies` 恢复过期过滤——`expirationDate <= now` 的 cookie 跳过写入（不 set、不参与已知列表清除、不触发回滚），返回值新增 `expired` 计数；`popup.js` 切换后 `expired > 0` 提示"⚠ N 个 Cookie 已过期未写入，若无法登录请删除该账号并重新登录保存"。**语义**：已过期 cookie 的服务端会话本就失效（Keycloak session TTL 30min~10h），跳过是正确行为，未过期 cookie 照常全部写入；受影响账号需在网站**登录成功后重新保存**（扩展无法续命服务端会话）。**坑**：① 勿在保存侧过滤（保存时浏览器里的 cookie 均有效，过滤会漏存）；② 过期判断用 `Date.now()/1000`（秒），与 `cookies.expirationDate`（秒）同基准；③ 提示语要区分"一次性状态 cookie（KC_STATE_CHECKER/login_risk_state 等）过期"（不影响登录）与"会话凭据过期"（需重登），避免误吓用户——后续可细化。
+
+### 41. v2.11.7：移除「下载原始数据」临时诊断功能
+
+**TL;DR**：v2.11.5 为排查"同步数据奇怪变化"临时新增「下载原始数据」（明文导出，`backup.exportRaw` + `lib/backup.js exportRawData()` + 设置页按钮），排查完成且明文含完整 Cookie 值存在泄露风险，**v2.11.7 整体移除**（按钮 / action / 相关函数 / 测试脚本 `scripts/raw-export-test.cjs`）。移除后 `lib/backup.js`、`handlers/backup.js`、`options.html` 与官方 v2.11.4 一致；**保留 v2.11.6 的过期过滤修复**。教训：诊断性明文导出功能应短期使用后移除，避免长期保留敏感数据出口；排查"同步变化"的正确姿势是同步前后各导一份加密备份用 `parseBackup` 解密对比（或临时用 v2.11.5 明文导出后删除文件）。
+
 ### 35. WebDAV 选"最新备份"不能按文件名（v2.7.5）
 
 **TL;DR**：旧 `webdavPull` 按文件名排序取最后一份（文件名 = push 时刻）。但**文件名可被拷贝/手动上传/同步客户端改名**——目录里可能混入"文件名新、数据旧"的备份（如手动传的 7/4 旧文件叫今天的名字），按文件名会选错。**修复：逐个下载所有备份，优先按文件内 `__meta.exportedAt`（v2.7.3 起的导出时间标记，明文在加密内容内，需 `parseBackup` 解密读取）判定新旧；旧格式无 meta 或解密失败回退 `parseBackupStamp`（文件名 UTC 时间戳，`Date.UTC` 解析与 `Date.now()` 同基准可比）；损坏文件跳过、认证失败（401/403）整体终止**。**坑**：① meta 在加密内容内，选文件就必须解密——把"选文件"逻辑放 `webdavPull(config)`（config 含 pass 仅内存），`parseBackup` 依赖 backup.js 需在其后加载（importScripts 顺序已满足）；② 文件名时间戳用 `toISOString()`（UTC），`__meta.exportedAt` 用 `Date.now()`（UTC 毫秒），两者同基准可直接比较，勿混入本地时区。
