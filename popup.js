@@ -296,10 +296,17 @@ async function handleWebdavSync() {
       if (p.tombstoned) acts.push(`删除同步 ${p.tombstoned}`);
       if (p.skipped) acts.push(`保留 ${p.skipped} 个本地更新`);
       parts.push(`拉取 ${acts.length ? acts.join('、') : '无变化'}`);
-    } else {
+    } else if (r.pushed) {
       parts.push('远端无备份，已创建首份');
+    } else {
+      // v2.11.2 兜底：本地无任何数据（含墓碑）时跳过上传
+      parts.push('远端无备份');
     }
-    parts.push(`上传 ${r.pushed.filename}`);
+    if (r.pushed) {
+      parts.push(`上传 ${r.pushed.filename}`);
+    } else {
+      parts.push('本地无数据，未上传');
+    }
     showStatus(statusBar, `✅ 同步完成：${parts.join('；')}`, 'success', 6000);
   } catch (e) {
     showStatus(statusBar, `同步失败：${e.message}`, 'error');
@@ -363,9 +370,12 @@ async function handleSaveAccount() {
 async function handleSwitchAccount(name, account) {
   showStatus(statusBar, `⏳ 正在切换到「${name}」...`, 'success', 0);
   try {
-    // 主线经消息层 account.switch 收口（与 webdav/backup/settings 一致），
-    // SW 内复用共享 switchAccount 核心（写 cookie + localStorage + reload + 后台探测）
-    const r = await sendMessage('account.switch', { domain: currentDomain, name, tabId: currentTabId });
+    // v2.11.1 修复：cookie 操作改回 popup 直调（DEVELOPMENT.md §25 原则；AGENTS.md 坑 20）。
+    // 原因：account.switch 消息层让 applyCookies 在 Edge SW 上下文执行，
+    // 而 SW 中 cookies.getAll 读不到浏览器主会话 cookie → 清除旧 cookie 阶段失效
+    // （清除 0 个）→ 新旧会话混存 → 服务端校验失败 → 账号"很快过期/需要重新登录"。
+    // popup 页面上下文 getAll 可靠（与 v2.2/v2.6.0-2.8.x 行为一致），先清后写完整。
+    const r = await switchAccount(currentDomain, name, account, { tabId: currentTabId });
     // 简化提示：成功/失败两态，不展示过期/回滚等细节（用户要求）
     if (r && (r.failed.length > 0 || r.snapshotFailed)) {
       showStatus(statusBar, `「${name}」使用失败`, 'error');
