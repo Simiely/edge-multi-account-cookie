@@ -211,6 +211,13 @@ edge-multi-account-cookie/
 
 **TL;DR**：设置页保存 WebDAV 配置后密码框留空（placeholder"已保存"），再点「测试保存」前端校验 `if (!cfg.pass)` 直接报"请填写用户名与密码"——无法测试。**修复**：① SW 端 `webdav.test` 用户名/密码任一为空时自动 `getWebdavConfigDecrypted()` 复用已存凭据；② 前端 `handleWebdavTest` 检测到已保存配置且凭据留空时先 `ensureMasterKeyUnlocked()`（解密已存密码需要 MK）再调 SW。**坑**：复用已存密码必须走 SW 解密（getWebdavConfigDecrypted），前端拿不到明文；有密码锁时需先解锁 MK。v2.9.0 起该按钮为「测试保存」——测试连通后自动 `webdav.save`（密码留空保留已存），测试失败不保存。
 
+### 42. 深度清空 + 无痕隔离 + 调试（v2.11.9 / v2.11.10 / v2.11.11）
+
+- **深度清空（v2.11.9）**：「登录新账号」改走 `browsingData.remove({ origins })`，整站清空 cookie / localStorage / indexedDB / CacheStorage / Service Worker / 缓存，覆盖父/子域 origin；无 `browsingData` 权限时降级回「清 cookie + 当前标签 localStorage/sessionStorage」。`browsingData` **无 sessionStorage 类型**且其绑定单一 tab，须注入脚本逐 tab 清；深清后该域其它标签页一并 reload。
+- **无痕隔离（v2.11.9）**：manifest `incognito: "split"`；账号卡片可「无痕打开」（`openAccountInIncognito` 向无痕独立 cookie store 注入快照），保存面板可「无痕中保存」（`captureIncognitoAccount` 抓无痕会话写回普通 storage）。依赖扩展详情页开启「允许在无痕模式下运行」。
+- **调试辅助（v2.11.10）**：`lib/debug.js` 全局捕获 error / unhandledrejection，`copyDebugReport()` 输出「环境快照 + 运行日志 + 错误栈」到控制台/剪贴板，便于远程定位。
+- **废弃 dataType 兼容（v2.11.11）**：新版 Chrome/Edge 已移除 `webSQL` 与 `fileSystems`，传入 `browsingData.remove` 会触发 `Requested data type(s) are not supported: webSQL` 警告，故从深度清空清单移除（保留 cookie / localStorage / indexedDB / cacheStorage / serviceWorkers / cache）。WebSQL / FileSystem 已废弃、几乎不承载登录态，不影响功能。
+
 ## 主线逻辑关键点依据（GitHub / 官方求证，2026-08-08）
 
 > 主线 = 保存账号 → 切换账号。每个关键决策都有官方文档或社区一手实证，改动前先读这里。

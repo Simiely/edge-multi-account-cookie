@@ -2,6 +2,65 @@
 
 > 版本号与 `manifest.json` 同步，每次发布 bump。详细改动背景见 `DEVELOPMENT.md`「关键问题与方案」与 `AGENTS.md`。
 
+## v2.11.11 (2026-08-24)
+
+### 修复（深度清空兼容性与回归验证）
+
+- **移除废弃的 `browsingData` dataType**：新版 Chrome/Edge 已移除 `webSQL` 与 `fileSystems`，作为 `dataToRemove` 传入会触发 `Requested data type(s) are not supported: webSQL` 警告。现从 `lib/cookies.js deepClearSiteData` 的清除清单删除这两项，保留 `cookies / localStorage / indexedDB / cacheStorage / serviceWorkers / cache`。不影响实际功能（WebSQL / FileSystem 已被标准废弃，几乎不承载登录态）。
+- **回归**：`node --check` 全部通过。
+
+## v2.11.10 (2026-08-24)
+
+### 新增（调试辅助，便于远程定位）
+
+- 新增 `lib/debug.js`：安装全局 `installDebugTrap()`，自动登记 `error` / `unhandledrejection`；`copyDebugReport(label)` 可将「环境快照（浏览器/插件版本、`chrome.browsingData` 等 API 可用性、当前域/标签、最近运行日志）+ 错误栈」一次性输出到控制台并复制到剪贴板。
+- `popup.html` 头部新增 ⚠️ 调试按钮（`#btnDebug`，调用 `handleDebugCapture`）。
+- `popup.js` 的 `handleLoginNew` 失败时自动把「错误信息 + 环境快照」写入剪贴板。
+- 纯诊断辅助，与业务解耦，正式发布版可移除。
+
+### 验证
+
+- `node --check` 通过。
+
+## v2.11.9 (2026-08-24)
+
+### 变更（清理式切换增强 + 无痕隔离会话）
+
+解决「新建账号/切换后旧账号数据清不干净、相互污染」——此前只清 cookie + 当前标签 localStorage，IndexedDB / CacheStorage / Service Worker / sessionStorage & 其它标签页均残留。
+
+**主方案：清理式切换增强**
+- **「①登录新账号」升级为深度清空**：`popup.js handleLoginNew` 改走 `browsingData.remove({origins})`，对当前域 + 父/子域 origin 整站清空 Cookie / localStorage / IndexedDB / CacheStorage / Service Worker / 缓存 / fileSystems（新增 `lib/cookies.js` `deepClearSiteData` / `parseOriginsForDomain`）。`browsingData` 不可用时自动降级回「清 cookie + 当前标签 localStorage/sessionStorage」。
+- **切换账号补 sessionStorage 替换式**：`lib/cookies.js switchAccount` 有快照则整槽写回 `sessionStorage`、无快照则清空当前标签 session（`setTabSessionStorage` / `clearTabSessionStorage` / `getTabSessionStorage`）。此前 sessionStorage 残留会导致切换后前端读到旧账号 token。
+- **深清后该域其它标签页一并 reload**：`reloadTabsForDomain` 尽力刷新该域及子域的所有已打开标签，让它们进入干净态；`browsingData` 无 sessionStorage 类型，故当前标签在 reload 前注入清理。
+- **保存时抓取 sessionStorage**：`saveAccount` 新增可选第 6 参 `sessionStorageData`，账号模型新增 `sessionStorage` 字段（旧账号缺省为空对象，`applyCookies`/`switchAccount` 均以 `|| {}` 兜底，不破坏既有数据）。
+
+**无痕隔离会话（高敏感站点）**
+- manifest 新增 `"incognito": "split"` + `browsingData` 权限。
+- 账号卡片新增「在无痕窗口中打开该账号」：`openAccountInIncognito` 向无痕独立 cookie store 注入该账号快照（storeId 透传，CHIPS 红线段不破坏），关闭无痕窗口即整体清零，天然不与主会话串号。
+- 保存面板新增「无痕中保存」：`captureIncognitoAccount` 从无痕 store + 无痕标签页抓取（cookie / localStorage / sessionStorage），写回**普通** `chrome.storage.local`（持久），可用 WebDAV 同步备份。
+- 依赖用户在扩展详情页允许扩展在无痕模式下运行（未开启时提示引导）。
+
+### 需要真机验证项
+
+`browsingData.remove`、无痕 storeId 注入、对无痕标签 `executeScript` 属浏览器运行时行为，本版已完成静态/逻辑回归；视觉与 store 语义需在 Edge/Chrome 实际加载验证。
+
+### 验证
+
+- 全部 JS `node --check` 通过；`scripts/tombstone-chain-test.cjs` 34 断言无回归；`scripts/expired-filter-test.cjs` 12 断言无回归。
+
+## v2.11.8 (2026-08-24)
+
+### 修复（partitionKey 去重键 / 旧数据匹配 / 导入刷新）
+
+- **cookie 唯一键纳入 partitionKey（CHIPS 一致性修复）**：`lib/cookies.js` 新增 `cookieKey()`（name+domain+path+partitionKey 稳定序列化），`getCookies` 合并去重与 `applyCookies` 双保险清除的 `knownKeys` 均改用它。此前键仅 `name|domain|path`——Chrome 119+ 下 partitioned 与非 partitioned cookie 可同名同域同路径并存，保存时会把其中一套合并丢失（漏存），切换/清除时可能漏删旧 partition 版本。与项目既有的「partitionKey/storeId 全链路透传」P0 原则对齐。
+- **弹窗「当前使用」匹配兼容旧 `enc:` 数据**：`popup.js` `matchCurrentAccount` 比对前先对 `enc:` 遗留密文用主密钥解密（与 `applyCookies` 的加密兼容处理一致），旧格式账号不再「永不命中高亮」；纯明文值行为不变。
+- **导入后刷新状态栏**：`options.js` `handleImport` 成功后 `await loadSettings()`，账号总数等统计不再停留在导入前。
+- **清理死代码**：移除 `options.html` 中从未被使用的 `#lockBanner` 元素。
+
+### 验证
+
+- 全部 JS `node --check` 通过；`scripts/tombstone-chain-test.cjs` 34 断言无回归；`scripts/expired-filter-test.cjs` 12 断言无回归。
+
 ## v2.11.7 (2026-08-09)
 
 ### 变更（移除「下载原始数据」功能）

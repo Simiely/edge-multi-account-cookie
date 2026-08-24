@@ -9,6 +9,8 @@ let currentTabId = -1;
 let currentAccountName = null; // 当前使用的已保存账号（v2.8.0，用于身份区显示与卡片高亮）
 let unlocked = false;
 
+// 调试辅助：全局错误/未处理 rejection 先登记，便于出错时转储反馈（lib/debug.js，正式版可移除）
+if (typeof installDebugTrap === 'function') installDebugTrap();
 const $ = (id) => document.getElementById(id);
 const inputName = $('inputName');
 const btnSaveConfirm = $('btnSaveConfirm');
@@ -87,15 +89,23 @@ async function matchCurrentAccount() {
     if (!cookies || cookies.length === 0) return null;
     const entries = Object.entries(accounts || {});
     if (entries.length === 0) return null;
+    // v2.11.8：兼容『enc:』遗留密文——解密后再与浏览器明文比对，否则旧账号永不命中高亮
+    const mk = await getMasterKey().catch(() => null);
     let best = null, bestScore = 0;
     for (const [name, account] of entries) {
       const saved = account.cookies || [];
       if (saved.length === 0) continue;
       let score = 0;
       for (const sc of saved) {
-        if (!sc.value) continue;
+        let sv = sc.value;
+        if (typeof sv === 'string' && sv.startsWith('enc:')) {
+          if (!mk) continue;
+          sv = await decryptWithKey(sv.slice(4), mk);
+          if (sv === null) continue;
+        }
+        if (!sv) continue;
         for (const cc of cookies) {
-          if (cc.name === sc.name && cc.value === sc.value) { score++; break; }
+          if (cc.name === sc.name && cc.value === sv) { score++; break; }
         }
       }
       if (score > bestScore) { bestScore = score; best = name; }
@@ -217,7 +227,8 @@ async function renderAccountList() {
     const card = createAccountCard(name, account, {
       onEdit: handleEditAccount,
       onSwitch: handleSwitchAccount,
-      onDelete: handleDeleteAccount
+      onDelete: handleDeleteAccount,
+      onIncognito: handleOpenInIncognito
     });
     // 当前正在使用的账号高亮（v2.8.0）
     if (name === currentAccountName) card.classList.add('active');
@@ -248,6 +259,23 @@ function bindEvents() {
     if (e.key === 'Enter') handleUnlock();
   });
   document.getElementById('btnWebdavSync').addEventListener('click', handleWebdavSync);
+  document.getElementById('btnSaveIncognito').addEventListener('click', handleSaveIncognito);
+  document.getElementById('btnDebug').addEventListener('click', handleDebugCapture);
+}
+
+// ============================================================
+//  调试（lib/debug.js）：捕获环境快照并复制，供反馈定位
+// ============================================================
+
+async function handleDebugCapture() {
+  if (typeof copyDebugReport !== 'function') {
+    showStatus(statusBar, '调试模块未加载，请确认 popup.html 引入了 lib/debug.js', 'error');
+    return;
+  }
+  const r = await copyDebugReport('manual');
+  showStatus(statusBar,
+    r.ok ? '🧪 调试信息已复制到剪贴板，直接粘贴发我即可' : '🧪 剪贴板不可用，请打开控制台(F12→Console)展开 CookieSwitcher-debug 输出后复制',
+    r.ok ? 'warning' : 'error', 6000);
 }
 
 // ============================================================
@@ -345,10 +373,13 @@ async function handleSaveAccount() {
     const cookies = await getCookies(currentDomain);
 
     let lsData = {};
+    let ssData = {};
     if (currentTabId > 0) {
       try { lsData = await getTabLocalStorage(currentTabId); } catch (e) { /* ignore */ }
+      // v2.11.9：一并抓取 sessionStorage（切换时替换式回写/清空，防会话残留污染）
+      try { ssData = await getTabSessionStorage(currentTabId); } catch (e) { /* ignore */ }
     }
-    await saveAccount(currentDomain, name, cookies, lsData, '');
+    await saveAccount(currentDomain, name, cookies, lsData, '', ssData);
 
     if (cookies.length === 0) {
       showStatus(statusBar, `⚠️ 已保存「${name}」但没有读取到任何 Cookie。可能缺少主机权限，请点击「授权访问此网站」`, 'error');
@@ -440,32 +471,111 @@ async function handleEditAccount(name) {
 async function handleLoginNew() {
   if (!currentDomain) return;
 
-  showStatus(statusBar, '⏳ 正在清除 Cookie...', 'success', 0);
+  showStatus(statusBar, '⏳ 正在彻底清除本站数据...', 'success', 0);
 
   try {
-    // popup 直调（修复 SW 读不到 cookie）：清 cookie + localStorage 都在 popup 上下文
-    const r = await clearDomainCookies(currentDomain);
-    if (r.failedCookies.length === 0 && currentTabId > 0) {
-      await clearTabLocalStorage(currentTabId);
-    }
-
-    if (r.failedCookies.length > 0) {
-      const failedNames = r.failedCookies.map((f) => f.name).join(', ');
-      showStatus(statusBar,
-        `⚠️ 成功移除 ${r.removed}/${r.total} 个 Cookie，${r.failedCookies.length} 个移除失败：${failedNames}（页面数据未清除）`,
-        'error');
-    } else if (r.removed > 0) {
-      showStatus(statusBar, `✓ 已清除 ${r.removed} 个 Cookie，页面正在刷新`);
+    // v2.11.9：升级为「深度清空」——browsingData 对当前域 + 父/子域 origins 整站清空，
+    // 覆盖 Cookie / localStorage / IndexedDB / CacheStorage / Service Worker / 缓存（不可枚举存储兜底）。
+    // 解决"新建账号清不干净旧号"：sessionStorage 无 browsingData 类型，须注入逐 tab 清。
+    const deep = await deepClearSiteData(currentDomain);
+    if (deep.ok) {
+      if (currentTabId > 0) {
+        await clearTabSessionStorage(currentTabId); // browsingData 不碰 sessionStorage
+        await chrome.tabs.reload(currentTabId);
+      }
+      // 该域其余打开的标签页一并 reload 到干净态（尽力而为）
+      const extra = await reloadTabsForDomain(currentDomain, { exceptTabId: currentTabId });
+      showStatus(statusBar, `✓ 已彻底清空本站数据（Cookie/本地存储/IndexedDB/缓存/Service Worker）页面已刷新${extra ? `（另刷新 ${extra} 个本站标签）` : ''}`, 'success', 6000);
     } else {
-      showStatus(statusBar, '⚠️ 没有 Cookie 被清除，可能缺少权限', 'error');
+      // 降级：browsingData 不可用 → 回退到「清 cookie + 当前 tab localStorage/sessionStorage」
+      const r = await clearDomainCookies(currentDomain);
+      if (r.failedCookies.length === 0 && currentTabId > 0) {
+        await clearTabLocalStorage(currentTabId);
+        await clearTabSessionStorage(currentTabId);
+      }
+      if (r.failedCookies.length > 0) {
+        const failedNames = r.failedCookies.map((f) => f.name).join(', ');
+        showStatus(statusBar,
+          `⚠️ 深清不可用，已回退：成功移除 ${r.removed}/${r.total} 个 Cookie，${r.failedCookies.length} 个移除失败：${failedNames}（页面数据未清除）`,
+          'error');
+      } else if (r.removed > 0) {
+        showStatus(statusBar, `✓ 深清不可用，已回退：清除 ${r.removed} 个 Cookie，页面正在刷新`, 'success');
+      } else {
+        showStatus(statusBar, '⚠️ 深清不可用且没有 Cookie 被清除，可能缺少权限', 'error');
+      }
+      if (currentTabId > 0) await chrome.tabs.reload(currentTabId);
     }
-    if (currentTabId > 0) await chrome.tabs.reload(currentTabId);
-    // v2.8.0：清 cookie 后不再匹配任何已保存账号
+    // 清 cookie 后不再匹配任何已保存账号
     currentAccountName = null;
     await refreshIdentity(true, 'Cookie Switcher');
     await renderAccountList();
   } catch (e) {
-    showStatus(statusBar, `清除失败：${e.message}`, 'error');
+    const msg = (e && e.message) ? e.message : String(e);
+    showStatus(statusBar, `清除失败：${msg}`, 'error');
+    // 调试：出错即把「错误栈 + 环境快照」复制到剪贴板，用户可直接粘贴回来
+    if (typeof copyDebugReport === 'function') {
+      try {
+        const dbg = await copyDebugReport('handleLoginNew');
+        const report = `【清除失败】${msg}\n${dbg.text}`;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(report);
+          showStatus(statusBar, `清除失败：${msg}（调试信息已复制，粘贴发我即可）`, 'error');
+        }
+      } catch (dbgErr) { /* 调试转储失败不影响主流程 */ }
+    }
+  }
+}
+
+// ============================================================
+//  无痕（incognito）会话（v2.11.9）
+//  高敏感站点隔离：账号卡片可「无痕打开」，保存面板可「无痕中保存」。
+//  前提：manifest incognito:split + 用户在扩展详情页允许扩展在无痕模式下运行。
+// ============================================================
+
+async function handleOpenInIncognito(name, account) {
+  if (!currentDomain) return;
+  showStatus(statusBar, `⏳ 正在无痕窗口打开「${name}」...`, 'success', 0);
+  try {
+    const ok = await openAccountInIncognito(currentDomain, account);
+    if (!ok) {
+      showStatus(statusBar, '无痕不可用：请先在「edge://extensions」详情页允许本扩展在无痕模式下运行', 'warning', 6000);
+      return;
+    }
+    showStatus(statusBar, `✓ 已在无痕窗口打开「${name}」（隔离会话，关闭无痕即清零，不与主会话串号）`, 'success', 6000);
+  } catch (e) {
+    showStatus(statusBar, `无痕打开失败：${e.message}`, 'error');
+  }
+}
+
+async function handleSaveIncognito() {
+  const name = inputName.value.trim();
+  if (!name) {
+    showStatus(statusBar, '请输入账号名称（用于保存到普通账号库）', 'error');
+    inputName.focus();
+    return;
+  }
+  if (!currentDomain) {
+    showStatus(statusBar, '无法获取当前网站域名', 'error');
+    return;
+  }
+  setSaveBusy(true);
+  try {
+    // 从无痕 store 抓该域 cookie + 无痕标签页 localStorage/sessionStorage，写回普通 storage（持久）
+    const cap = await captureIncognitoAccount(currentDomain);
+    if (cap.cookies.length === 0 && Object.keys(cap.localStorage).length === 0) {
+      showStatus(statusBar, '⚠️ 无痕会话中未读取到该账号数据。请先在无痕窗口登录该站点，再回到本弹窗点保存', 'warning', 6000);
+      return;
+    }
+    await saveAccount(currentDomain, name, cap.cookies, cap.localStorage, '', cap.sessionStorage);
+    currentAccountName = name;
+    await refreshIdentity(true, 'Cookie Switcher');
+    await renderAccountList();
+    showStatus(statusBar, `✓ 已保存无痕账号「${name}」（${cap.cookies.length} 个 Cookie），可走 WebDAV 同步备份`, 'success', 6000);
+    inputName.value = '';
+  } catch (e) {
+    showStatus(statusBar, `保存失败：${e.message}`, 'error');
+  } finally {
+    setSaveBusy(false);
   }
 }
 

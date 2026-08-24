@@ -290,6 +290,7 @@ async function handleImport(e) {
     // 先自动尝试（有锁用密码锁密码；无锁直接 NEED_PIN）
     try {
       const r = await sendMessage('backup.import', { blob: json.data, pin: '' });
+      await loadSettings(); // v2.11.8：刷新状态栏（账号总数）
       showMsg(backupStatus, `✅ 导入完成：${fmtResult(r)}`, 'success');
       fileInput.value = '';
       return;
@@ -303,6 +304,7 @@ async function handleImport(e) {
       return;
     }
     const r = await sendMessage('backup.import', { blob: json.data, pin: pwd });
+    await loadSettings(); // v2.11.8：刷新状态栏（账号总数）
     showMsg(backupStatus, `✅ 导入完成：${fmtResult(r)}`, 'success');
   } catch (err) {
     showMsg(backupStatus, `导入失败：${err.message}`, 'error');

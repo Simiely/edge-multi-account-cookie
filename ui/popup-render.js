@@ -28,7 +28,7 @@ function avatarColors(name) {
  * 账号卡片。
  * @param {string} name - 账号名
  * @param {object} account - 账号数据（含 cookies/localStorage）
- * @param {object} handlers - 行为回调 { onEdit(name), onSwitch(name, account), onDelete(name) }
+ * @param {object} handlers - 行为回调 { onEdit(name), onSwitch(name, account), onDelete(name), onIncognito(name, account) }
  *                            由 popup.js 注入（保持本文件纯视图，不依赖全局函数）
  */
 function createAccountCard(name, account, handlers = {}) {
@@ -81,6 +81,24 @@ function createAccountCard(name, account, handlers = {}) {
     if (handlers.onSwitch) handlers.onSwitch(name, account);
   });
   actions.appendChild(switchBtn);
+
+  if (handlers.onIncognito) {
+    const incogBtn = document.createElement('button');
+    incogBtn.className = 'btn-incognito';
+    incogBtn.title = '在无痕窗口中打开该账号（高敏感站点隔离）';
+    // 内联 SVG 图标（隐私眼睛），避免依赖字体字符渲染（Unicode ◯ 在部分字体下显示为空白）
+    incogBtn.innerHTML =
+      '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">' +
+        '<path d="M1.5 8 C3.5 4.5 12.5 4.5 14.5 8 C12.5 11.5 3.5 11.5 1.5 8 Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>' +
+        '<circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"/>' +
+        '<path d="M2 2 L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
+      '</svg>';
+    incogBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handlers.onIncognito(name, account);
+    });
+    actions.appendChild(incogBtn);
+  }
 
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'btn-delete';
