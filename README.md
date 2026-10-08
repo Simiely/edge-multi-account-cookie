@@ -1,3 +1,8 @@
+> ⚠️ **已并入 [`Simiely/pc-tools`](https://github.com/Simiely/pc-tools)（`scripts/edge-multi-account-cookie`）**
+> 本仓库已**归档只读**，内容不再更新。后续维护请到 [pc-tools](https://github.com/Simiely/pc-tools)。
+
+---
+
 # Edge Multi-Account Cookie Switcher
 
 > 安全的 Edge 多账号 Cookie 切换器 — 本地存储、密码锁保护，一键切换网站账号，支持 WebDAV 远程备份。
