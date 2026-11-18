@@ -78,6 +78,13 @@
 - 版本号：manifest.json 与 CHANGELOG.md 同步；每次发布 bump
 - 新增文案必须同步 `_locales/zh_CN` 与 `_locales/en`
 
+## 机器层（repo-kit · link-only）
+
+- `schema/taxonomy.json` + `schema/kit.lock.json`（kit `2.9.0` / 规范 `2.1.4` / `link-only`）+ `tools/repo-kit/check_repo.py`
+- 校验：`python tools/repo-kit/check_repo.py --root .`；锁哈希：`pwsh tools/update-repo-kit.ps1 -Check`
+- 只查**链接与锚点**：全仓 md 豁免 frontmatter（本仓没有 frontmatter 契约）
+- `schema/kit.lock.json` **不要手改**，升级只能跑 `tools/update-repo-kit.ps1`
+
 ## 常用命令
 
 - 无构建；打包 ZIP 用 Python zipfile（显式正斜杠条目 + 排除 .git/.gitignore；key.pem 由 .gitignore 忽略）⚠️ 旧说明"排除 sim_test.cjs、lib/health.js"已过时（两文件均已删除）
